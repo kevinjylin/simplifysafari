@@ -1,0 +1,51 @@
+{
+  "manifest_version": 3,
+  "name": "Applyfill",
+  "description": "Autofill Workday job applications from a profile stored only on this device.",
+  "version": "0.1.0",
+  "icons": {
+    "48": "icons/icon-48.png",
+    "96": "icons/icon-96.png",
+    "128": "icons/icon-128.png",
+    "256": "icons/icon-256.png",
+    "512": "icons/icon-512.png"
+  },
+  "action": {
+    "default_title": "Applyfill",
+    "default_popup": "popup/popup.html",
+    "default_icon": {
+      "16": "icons/icon-16.png",
+      "32": "icons/icon-32.png",
+      "48": "icons/icon-48.png"
+    }
+  },
+  "options_ui": {
+    "page": "options/options.html"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": [
+    "*://*.myworkdayjobs.com/*",
+    "*://*.myworkdaysite.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.myworkdayjobs.com/*",
+        "*://*.myworkdaysite.com/*"
+      ],
+      "js": [
+        "src/match.js",
+        "src/dom.js",
+        "src/profile.js",
+        "src/workday/fields.js",
+        "src/workday/rules.js",
+        "src/workday/fill.js",
+        "src/content.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ]
+}

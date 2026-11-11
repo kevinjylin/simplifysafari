@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mock Workday application</title>
+    <style>
+      body { font: 14px/1.4 -apple-system, sans-serif; margin: 0; display: grid; grid-template-columns: 1fr 380px; }
+      #app { padding: 24px 32px 200px; max-width: 640px; }
+      aside { padding: 16px; background: #f4f4f6; height: 100vh; overflow: auto; position: sticky; top: 0; box-sizing: border-box; }
+      .ff { margin: 12px 0; }
+      .ff > label, legend { display: block; font-weight: 600; margin-bottom: 4px; }
+      input[type="text"], input:not([type]), textarea { width: 100%; padding: 6px; box-sizing: border-box; }
+      [role="spinbutton"] { width: 70px !important; margin-right: 6px; }
+      button[aria-haspopup] { min-width: 220px; text-align: left; padding: 6px; }
+      ul[role="listbox"], .popup { position: fixed; left: 40px; top: 40px; z-index: 10; background: #fff; border: 1px solid #999; margin: 0; padding: 4px; list-style: none; max-height: 300px; overflow: auto; }
+      li[role="option"], [data-automation-id="promptOption"] { padding: 4px 8px; cursor: pointer; }
+      [data-automation-id="selectedItemList"] { display: inline-flex; gap: 6px; list-style: none; padding: 0; margin: 0 6px 0 0; }
+      [data-automation-id="selectedItemList"] li { background: #dde8ff; padding: 2px 8px; border-radius: 10px; }
+      fieldset { border: 0; padding: 0; margin: 0; }
+      h2 { margin-top: 40px; border-bottom: 1px solid #ccc; }
+      pre { font-size: 11px; white-space: pre-wrap; }
+      .pass { color: #0a7f2e; } .fail { color: #c9372c; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <aside>
+      <h3 id="verdict">Not run</h3>
+      <div id="results"></div>
+      <h3>Page state</h3>
+      <pre id="state">{}</pre>
+    </aside>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="setup.js"></script>
+    <script src="../../extension/src/match.js"></script>
+    <script src="../../extension/src/dom.js"></script>
+    <script src="../../extension/src/profile.js"></script>
+    <script src="../../extension/src/workday/fields.js"></script>
+    <script src="../../extension/src/workday/rules.js"></script>
+    <script src="../../extension/src/workday/fill.js"></script>
+    <script src="../../extension/src/content.js"></script>
+    <script src="mock.js"></script>
+    <script src="run.js"></script>
+  </body>
+</html>

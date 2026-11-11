@@ -1,0 +1,258 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Applyfill profile</title>
+    <link rel="stylesheet" href="options.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>Your profile</h1>
+          <p class="lede">
+            Applyfill copies these answers into Workday forms. They are stored only in Safari on this device and never
+            leave it. Leave anything blank and it is simply skipped.
+          </p>
+        </div>
+        <span id="saved" role="status" aria-live="polite"></span>
+      </header>
+
+      <section>
+        <h2>Personal</h2>
+        <div class="grid">
+          <label>First name <input data-path="personal.firstName" autocomplete="off" /></label>
+          <label>Last name <input data-path="personal.lastName" autocomplete="off" /></label>
+          <label>Email <input type="email" data-path="personal.email" autocomplete="off" /></label>
+          <label>Phone <input type="tel" data-path="personal.phone" autocomplete="off" placeholder="555 123 4567" /></label>
+          <label>
+            Phone type
+            <select data-path="personal.phoneType">
+              <option>Mobile</option>
+              <option>Home</option>
+              <option>Work</option>
+            </select>
+          </label>
+          <label>
+            Country phone code
+            <input data-path="personal.phoneCountryCode" autocomplete="off" />
+            <small>As Workday lists it, e.g. “United States of America (+1)”.</small>
+          </label>
+          <label class="wide">Address line 1 <input data-path="personal.address1" autocomplete="off" /></label>
+          <label class="wide">Address line 2 <input data-path="personal.address2" autocomplete="off" /></label>
+          <label>City <input data-path="personal.city" autocomplete="off" /></label>
+          <label>State / province <input data-path="personal.state" autocomplete="off" placeholder="CA or California" /></label>
+          <label>Postal code <input data-path="personal.postalCode" autocomplete="off" /></label>
+          <label>Country <input data-path="personal.country" autocomplete="off" /></label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Résumé</h2>
+        <div class="row">
+          <span id="resume-name" class="muted">No file saved.</span>
+          <label class="button">
+            Choose file
+            <input type="file" id="resume-file" accept=".pdf,.doc,.docx,.rtf,.txt" hidden />
+          </label>
+          <button id="resume-remove" class="plain" hidden>Remove</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Links</h2>
+        <div class="grid">
+          <label>LinkedIn <input type="url" data-path="links.linkedin" placeholder="https://www.linkedin.com/in/…" /></label>
+          <label>GitHub <input type="url" data-path="links.github" placeholder="https://github.com/…" /></label>
+          <label>Portfolio / website <input type="url" data-path="links.portfolio" /></label>
+          <label>Other <input type="url" data-path="links.other" /></label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Work experience</h2>
+        <p class="hint">Most recent first. Applyfill adds one entry on the form for each job here.</p>
+        <div id="work"></div>
+        <button class="plain" data-add="work">+ Add job</button>
+      </section>
+
+      <section>
+        <h2>Education</h2>
+        <div id="education"></div>
+        <button class="plain" data-add="education">+ Add school</button>
+      </section>
+
+      <section>
+        <h2>Skills</h2>
+        <label>
+          <textarea id="skills" rows="2" placeholder="Python, SQL, React"></textarea>
+          <small>Separate with commas. Each is searched in Workday's skill list and added if found.</small>
+        </label>
+      </section>
+
+      <section>
+        <h2>Common questions</h2>
+        <div class="grid">
+          <label>
+            How did you hear about us?
+            <input data-path="questions.source" autocomplete="off" placeholder="LinkedIn" />
+          </label>
+          <label>
+            Legally authorized to work in the country?
+            <select data-path="questions.authorized" data-yesno></select>
+          </label>
+          <label>
+            Need visa sponsorship now or later?
+            <select data-path="questions.sponsorship" data-yesno></select>
+          </label>
+          <label>
+            At least 18 years old?
+            <select data-path="questions.over18" data-yesno></select>
+          </label>
+          <label>
+            Worked for this employer before?
+            <select data-path="questions.previouslyEmployed" data-yesno></select>
+          </label>
+          <label>
+            Willing to relocate?
+            <select data-path="questions.relocate" data-yesno></select>
+          </label>
+          <label>
+            Bound by a non-compete?
+            <select data-path="questions.nonCompete" data-yesno></select>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Voluntary self-identification</h2>
+        <p class="hint">Optional. Blank fields are left for you to answer on the form.</p>
+        <div class="grid">
+          <label>
+            Gender
+            <select data-path="eeo.gender">
+              <option value="">Don't fill</option>
+              <option>Male</option>
+              <option>Female</option>
+              <option>Non-binary</option>
+              <option value="Decline">Decline to answer</option>
+            </select>
+          </label>
+          <label>
+            Race / ethnicity
+            <select data-path="eeo.ethnicity">
+              <option value="">Don't fill</option>
+              <option>American Indian or Alaska Native</option>
+              <option>Asian</option>
+              <option>Black or African American</option>
+              <option>Hispanic or Latino</option>
+              <option>Native Hawaiian or Other Pacific Islander</option>
+              <option>Two or More Races</option>
+              <option>White</option>
+              <option value="Decline">Decline to answer</option>
+            </select>
+          </label>
+          <label>
+            Hispanic or Latino?
+            <select data-path="eeo.hispanic" data-yesno></select>
+          </label>
+          <label>
+            Veteran status
+            <select data-path="eeo.veteran">
+              <option value="">Don't fill</option>
+              <option>Not a veteran</option>
+              <option>Protected veteran</option>
+              <option>Veteran, not protected</option>
+              <option value="Decline">Decline to answer</option>
+            </select>
+          </label>
+          <label>
+            Disability
+            <select data-path="eeo.disability">
+              <option value="">Don't fill</option>
+              <option value="No">No, I don't have one</option>
+              <option value="Yes">Yes, I have one</option>
+              <option value="Decline">Decline to answer</option>
+            </select>
+          </label>
+        </div>
+      </section>
+
+      <section>
+        <h2>Your own answers</h2>
+        <p class="hint">
+          For questions Applyfill doesn't know. If a question on the form contains the text on the left, it gets the
+          answer on the right. For dropdowns, write the option you'd pick.
+        </p>
+        <div id="custom"></div>
+        <button class="plain" data-add="custom">+ Add answer</button>
+      </section>
+
+      <section>
+        <h2>Backup</h2>
+        <div class="row">
+          <button id="export" class="plain">Export profile</button>
+          <label class="button plain">
+            Import profile
+            <input type="file" id="import" accept="application/json,.json" hidden />
+          </label>
+          <span id="backup-note" class="muted"></span>
+        </div>
+      </section>
+    </main>
+
+    <template id="tpl-work">
+      <div class="entry">
+        <div class="grid">
+          <label>Job title <input data-key="title" autocomplete="off" /></label>
+          <label>Company <input data-key="company" autocomplete="off" /></label>
+          <label>Location <input data-key="location" autocomplete="off" /></label>
+          <label class="check"><input type="checkbox" data-key="current" /> I currently work here</label>
+          <label>
+            Start
+            <span class="pair">
+              <select data-key="startMonth" data-months></select>
+              <input data-key="startYear" inputmode="numeric" placeholder="Year" maxlength="4" />
+            </span>
+          </label>
+          <label>
+            End
+            <span class="pair">
+              <select data-key="endMonth" data-months data-end></select>
+              <input data-key="endYear" inputmode="numeric" placeholder="Year" maxlength="4" data-end />
+            </span>
+          </label>
+          <label class="wide">Description <textarea data-key="description" rows="4"></textarea></label>
+        </div>
+        <button class="plain danger" data-remove>Remove</button>
+      </div>
+    </template>
+
+    <template id="tpl-education">
+      <div class="entry">
+        <div class="grid">
+          <label>School <input data-key="school" autocomplete="off" /></label>
+          <label>Degree <input data-key="degree" autocomplete="off" placeholder="Bachelor of Science" /></label>
+          <label>Field of study <input data-key="field" autocomplete="off" /></label>
+          <label>GPA <input data-key="gpa" autocomplete="off" /></label>
+          <label>Start year <input data-key="startYear" inputmode="numeric" maxlength="4" /></label>
+          <label>End year (actual or expected) <input data-key="endYear" inputmode="numeric" maxlength="4" /></label>
+        </div>
+        <button class="plain danger" data-remove>Remove</button>
+      </div>
+    </template>
+
+    <template id="tpl-custom">
+      <div class="entry inline">
+        <input data-key="question" autocomplete="off" placeholder="Question contains…" aria-label="Question contains" />
+        <input data-key="answer" autocomplete="off" placeholder="Answer" aria-label="Answer" />
+        <button class="plain danger" data-remove aria-label="Remove">×</button>
+      </div>
+    </template>
+
+    <script src="../src/profile.js"></script>
+    <script src="options.js"></script>
+  </body>
+</html>

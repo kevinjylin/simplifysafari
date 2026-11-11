@@ -1,0 +1,29 @@
+<!doctype html>
+<meta charset="utf-8" />
+<meta name="color-scheme" content="light dark" />
+<title>Options page preview</title>
+<!-- Loads the extension's options page outside Safari, with localStorage standing in for extension storage. -->
+<script>
+  const mem = JSON.parse(localStorage.getItem('applyfill-preview') || '{}');
+  const persist = () => localStorage.setItem('applyfill-preview', JSON.stringify(mem));
+  window.browser = {
+    storage: {
+      local: {
+        get: async (key) => ({ [key]: mem[key] }),
+        set: async (items) => { Object.assign(mem, items); persist(); },
+        remove: async (key) => { delete mem[key]; persist(); },
+      },
+    },
+  };
+  (async () => {
+    const base = '../../extension/options/';
+    const page = new DOMParser().parseFromString(await (await fetch(base + 'options.html')).text(), 'text/html');
+    const css = Object.assign(document.createElement('link'), { rel: 'stylesheet', href: base + 'options.css' });
+    document.head.append(css);
+    document.body.append(...page.body.querySelectorAll('main, template'));
+    for (const src of ['../../extension/src/profile.js', base + 'options.js']) {
+      await new Promise((done) => document.body.append(Object.assign(document.createElement('script'), { src, onload: done })));
+    }
+  })();
+</script>
+<body></body>
