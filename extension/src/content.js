@@ -1,4 +1,4 @@
-// The on-page control: a small card in the corner of Workday application pages
+// The on-page control: a small card in the corner of application pages
 // with an Autofill button and, afterwards, the list of fields still needing you.
 (function (root) {
   'use strict';
@@ -13,7 +13,14 @@
     nomatch: 'No matching option',
     failed: "Couldn't fill",
     partial: 'Partly filled',
+    extra: 'Not in your profile. Delete it if it is not a real entry',
   };
+
+  function reason(row) {
+    if (row.missing) return `Not found: ${row.missing.join(', ')}`;
+    if (row.status === 'differs') return `A different file is attached: ${row.attached}`;
+    return REASON[row.status] || row.status;
+  }
 
   const STYLE = `
     :host { all: initial; }
@@ -92,7 +99,7 @@
 
   function render(rows) {
     lastRows = rows;
-    const { filled, already, attention } = AF.summarize(rows);
+    const { filled, corrected, already, attention } = AF.summarize(rows);
     card.classList.remove('compact');
 
     const summary = $('summary');
@@ -101,7 +108,8 @@
     const b = document.createElement('b');
     b.textContent = `${filled} filled`;
     summary.append(b);
-    if (already) summary.append(` · ${already} already had a value`);
+    if (corrected) summary.append(` · ${corrected} corrected`);
+    if (already) summary.append(` · ${already} already right`);
     summary.append(attention.length ? ` · ${attention.length} need you` : ' · nothing left for you');
 
     const list = $('list');
@@ -121,7 +129,7 @@
         req.textContent = 'Required · ';
         why.append(req);
       }
-      why.append(row.missing ? `Not found: ${row.missing.join(', ')}` : REASON[row.status] || row.status);
+      why.append(reason(row));
       li.append(q, why);
       li.addEventListener('click', () => flash(row.el));
       list.append(li);
@@ -147,7 +155,7 @@
       const rows = await AF.fillPage(profile, resume);
       render(rows);
       const s = AF.summarize(rows);
-      return { filled: s.filled, already: s.already, attention: s.attention.length };
+      return { filled: s.filled, corrected: s.corrected, already: s.already, attention: s.attention.length };
     } finally {
       busy = false;
       button.disabled = false;
@@ -161,9 +169,10 @@
     return JSON.stringify(
       {
         page: location.hostname + location.pathname.replace(/\/[^/]*\d{4,}[^/]*/g, '/…'),
-        // `missing` (searched values that weren't found) is left out: it comes from the profile.
-        fields: rows.map(({ id, type, label, section, index, required, status, options, error }) => ({
-          id, type, label, section, index, required, status, options, error,
+        // Left out on purpose: `missing` and `attached`, which come from your profile and files.
+        // `diag` is the tag structure of a control that couldn't be filled, with no text in it.
+        fields: rows.map(({ id, type, label, section, index, required, status, replaced, options, error, diag }) => ({
+          id, type, label, section, index, required, status, replaced, options, error, diag,
         })),
       },
       null,
@@ -188,7 +197,7 @@
     setTimeout(() => (button.textContent = 'Copy field report'), 1500);
   });
 
-  // Workday is a single-page app: forms appear and disappear without a page
+  // Workday and Greenhouse are single-page apps: forms appear and disappear without a page
   // load, so watch for them rather than checking once.
   let timer = null;
   function sync() {

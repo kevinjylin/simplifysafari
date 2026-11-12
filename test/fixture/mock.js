@@ -6,8 +6,15 @@
 //   - search prompts select on Enter, or show a result list when ambiguous
 //   - date boxes ignore typing and only respond to arrow keys
 // Committed values are mirrored into window.__wd for the assertions in run.js.
+//
+// With ?parsed in the URL the form starts the way Workday leaves it after
+// "Autofill with Resume": mostly filled in, partly wrong.
 (function () {
   const { useState, useRef, createElement: h } = React;
+
+  const PARSED = new URLSearchParams(location.search).has('parsed');
+  /** A starting value that only exists in the résumé-parsed variant. */
+  const pre = (value) => (PARSED ? value : undefined);
 
   const store = (window.__wd = {});
   function commit(name, value) {
@@ -24,8 +31,8 @@
     );
   }
 
-  function Text({ name, id, label, required, textarea, initial = '' }) {
-    const [value, setValue] = useState(initial);
+  function Text({ name, id, label, required, textarea, initial }) {
+    const [value, setValue] = useState(initial || '');
     const inputId = 'in-' + name;
     return h(
       Wrap,
@@ -41,9 +48,12 @@
     );
   }
 
-  function Dropdown({ name, id, label, options, required, onChoose }) {
+  // `via: 'mousedown'` models a control that ignores `click` and reacts to the
+  // mouse going down, which a plain element.click() never triggers.
+  function Dropdown({ name, id, label, options, required, onChoose, initial, via = 'click' }) {
     const [open, setOpen] = useState(false);
-    const [value, setValue] = useState('');
+    const [value, setValue] = useState(initial || '');
+    const on = (handler) => (via === 'mousedown' ? { onMouseDown: handler } : { onClick: handler });
     const listId = 'list-' + name;
     const choose = (option) => {
       setValue(option);
@@ -56,7 +66,7 @@
       { id, label, required },
       h(
         'button',
-        { type: 'button', 'aria-haspopup': 'listbox', 'aria-controls': listId, 'aria-expanded': open ? 'true' : undefined, onClick: () => setOpen(!open) },
+        { type: 'button', 'aria-haspopup': 'listbox', 'aria-controls': listId, 'aria-expanded': open ? 'true' : undefined, ...on(() => setOpen(!open)) },
         value || 'Select One'
       ),
       open &&
@@ -65,7 +75,7 @@
             'ul',
             { id: listId, role: 'listbox', onKeyDown: (e) => e.key === 'Escape' && setOpen(false) },
             ['Select One', ...options].map((option) =>
-              h('li', { key: option, role: 'option', onClick: () => option !== 'Select One' && choose(option) }, h('div', null, option))
+              h('li', { key: option, role: 'option', ...on(() => option !== 'Select One' && choose(option)) }, h('div', null, option))
             )
           ),
           document.body
@@ -73,9 +83,9 @@
     );
   }
 
-  function Search({ name, id, label, options, multi }) {
+  function Search({ name, id, label, options, multi, initial }) {
     const [query, setQuery] = useState('');
-    const [selected, setSelected] = useState([]);
+    const [selected, setSelected] = useState(initial || []);
     const [results, setResults] = useState(null);
     const containerId = 'ms-' + name;
     const choose = (option) => {
@@ -121,9 +131,9 @@
     );
   }
 
-  function DateField({ name, id, label, parts }) {
+  function DateField({ name, id, label, parts, initial }) {
     const [, rerender] = useState(0);
-    const values = useRef({});
+    const values = useRef(initial || {});
     const step = (part) => (e) => {
       if (e.key !== 'ArrowUp') return;
       e.preventDefault();
@@ -153,8 +163,8 @@
     );
   }
 
-  function Choices({ name, id, legend, options, kind }) {
-    const [value, setValue] = useState(null);
+  function Choices({ name, id, legend, options, kind, initial }) {
+    const [value, setValue] = useState(initial ?? null);
     return h(
       'div',
       { 'data-automation-id': 'formField-' + id, className: 'ff' },
@@ -184,8 +194,8 @@
     );
   }
 
-  function Checkbox({ name, id, label }) {
-    const [checked, setChecked] = useState(false);
+  function Checkbox({ name, id, label, initial, onToggle }) {
+    const [checked, setChecked] = useState(Boolean(initial));
     return h(
       'div',
       { 'data-automation-id': 'formField-' + id, className: 'ff' },
@@ -196,14 +206,15 @@
         onChange: (e) => {
           setChecked(e.target.checked);
           commit(name, e.target.checked);
+          if (onToggle) onToggle(e.target.checked);
         },
       }),
       h('label', { htmlFor: 'cb-' + name, style: { display: 'inline', fontWeight: 400 } }, ' ' + label)
     );
   }
 
-  function Upload({ name, id }) {
-    const [fileName, setFileName] = useState(null);
+  function Upload({ name, id, initial }) {
+    const [fileName, setFileName] = useState(initial || null);
     const onChange = async (e) => {
       const file = e.target.files[0];
       if (!file) return;
@@ -229,6 +240,29 @@
     );
   }
 
+  // What the résumé parser "found": a mangled title, a wrong start date, a
+  // description with the whole projects section glued on, and a job that isn't one.
+  const PARSED_WORK = {
+    1: { title: 'La Metro Jun', company: 'Engines Ltd', from: { Month: 1, Year: 2025 }, description: 'Built the engine. PROJECTS Side project one. Side project two.' },
+    2: { title: 'Intern', company: 'Looms Inc', from: { Month: 6, Year: 2020 }, to: { Month: 9, Year: 2020 } },
+    3: { title: 'Projects', company: 'Personal' },
+  };
+
+  function WorkEntry({ n }) {
+    const was = pre(PARSED_WORK[n]) || {};
+    const [current, setCurrent] = useState(false);
+    return [
+      h(Text, { key: 'a', name: `work${n}.title`, id: 'jobTitle', label: 'Job Title', required: true, initial: was.title }),
+      h(Text, { key: 'b', name: `work${n}.company`, id: 'companyName', label: 'Company', required: true, initial: was.company }),
+      h(Text, { key: 'c', name: `work${n}.location`, id: 'location', label: 'Location' }),
+      h(Checkbox, { key: 'd', name: `work${n}.current`, id: 'currentlyWorkHere', label: 'I currently work here', onToggle: setCurrent }),
+      h(DateField, { key: 'e', name: `work${n}.from`, id: 'startDate', label: 'From', parts: ['Month', 'Year'], initial: was.from }),
+      // Workday removes the end date while "I currently work here" is ticked.
+      !current && h(DateField, { key: 'f', name: `work${n}.to`, id: 'endDate', label: 'To', parts: ['Month', 'Year'], initial: was.to }),
+      h(Text, { key: 'g', name: `work${n}.description`, id: 'roleDescription', label: 'Role Description', textarea: true, initial: was.description }),
+    ];
+  }
+
   const YES_NO = ['Yes', 'No'];
 
   function App() {
@@ -238,52 +272,41 @@
       { onSubmit: (e) => e.preventDefault() },
       h('h2', null, 'My Information'),
       h(Search, { name: 'source', id: 'source', label: 'How Did You Hear About Us?', options: ['LinkedIn', 'LinkedIn Ads', 'Company Website', 'Referral'] }),
-      h(Choices, { name: 'previousWorker', id: 'candidateIsPreviousWorker', kind: 'radio', legend: 'Have you previously worked for Acme as an employee or contractor?*', options: YES_NO }),
-      h(Dropdown, { name: 'country', id: 'country', label: 'Country', required: true, onChoose: setCountry, options: ['Canada', 'United States Minor Outlying Islands', 'United States of America'] }),
-      h(Text, { name: 'firstName', id: 'legalName--firstName', label: 'First Name', required: true }),
+      h(Choices, { name: 'previousWorker', id: 'candidateIsPreviousWorker', kind: 'radio', legend: 'Have you previously worked for Acme as an employee or contractor?*', options: YES_NO, initial: pre('Yes') }),
+      h(Dropdown, { name: 'country', id: 'country', label: 'Country', required: true, onChoose: setCountry, initial: pre('United States of America'), options: ['Canada', 'United States Minor Outlying Islands', 'United States of America'] }),
+      h(Text, { name: 'firstName', id: 'legalName--firstName', label: 'First Name', required: true, initial: pre('Ada') }),
       h(Text, { name: 'middleName', id: 'legalName--middleName', label: 'Middle Name' }),
-      h(Text, { name: 'lastName', id: 'legalName--lastName', label: 'Last Name', required: true }),
+      h(Text, { name: 'lastName', id: 'legalName--lastName', label: 'Last Name', required: true, initial: pre('LOVELACE') }),
       h(Checkbox, { name: 'preferredName', id: 'preferredCheck', label: 'I have a preferred name' }),
       h(Text, { name: 'address1', id: 'addressLine1', label: 'Address Line 1', required: true }),
       h(Text, { name: 'city', id: 'city', label: 'City', required: true }),
       // Appears only once a country is chosen, like Workday's region list.
-      country && h(Dropdown, { key: country, name: 'state', id: 'countryRegion', label: 'State', required: true, options: ['Alabama', 'California', 'Colorado', 'New York'] }),
+      (country || PARSED) && h(Dropdown, { key: country, name: 'state', id: 'countryRegion', label: 'State', required: true, options: ['Alabama', 'California', 'Colorado', 'New York'] }),
       h(Text, { name: 'postalCode', id: 'postalCode', label: 'Postal Code', required: true }),
       h(Text, { name: 'email', id: 'email', label: 'Email Address', initial: 'existing@example.com' }),
-      h(Dropdown, { name: 'phoneType', id: 'phoneType', label: 'Phone Device Type', required: true, options: ['Home', 'Mobile', 'Work'] }),
+      h(Dropdown, { name: 'phoneType', id: 'phoneType', label: 'Phone Device Type', required: true, via: 'mousedown', options: ['Home', 'Mobile', 'Work'] }),
       h(Search, { name: 'phoneCode', id: 'country-phone-code', label: 'Country Phone Code', options: ['United States of America (+1)', 'Canada (+1)', 'United Kingdom (+44)'] }),
-      h(Text, { name: 'phone', id: 'phoneNumber', label: 'Phone Number', required: true }),
+      h(Text, { name: 'phone', id: 'phoneNumber', label: 'Phone Number', required: true, initial: pre('(555) 010-2345') }),
       h(Text, { name: 'extension', id: 'extension', label: 'Phone Extension' }),
 
       h('h2', null, 'My Experience'),
-      h(Repeating, {
-        title: 'Work Experience',
-        render: (n) => [
-          h(Text, { key: 'a', name: `work${n}.title`, id: 'jobTitle', label: 'Job Title', required: true }),
-          h(Text, { key: 'b', name: `work${n}.company`, id: 'companyName', label: 'Company', required: true }),
-          h(Text, { key: 'c', name: `work${n}.location`, id: 'location', label: 'Location' }),
-          h(Checkbox, { key: 'd', name: `work${n}.current`, id: 'currentlyWorkHere', label: 'I currently work here' }),
-          h(DateField, { key: 'e', name: `work${n}.from`, id: 'startDate', label: 'From', parts: ['Month', 'Year'] }),
-          h(DateField, { key: 'f', name: `work${n}.to`, id: 'endDate', label: 'To', parts: ['Month', 'Year'] }),
-          h(Text, { key: 'g', name: `work${n}.description`, id: 'roleDescription', label: 'Role Description', textarea: true }),
-        ],
-      }),
+      h(Repeating, { title: 'Work Experience', initial: PARSED ? 3 : 0, render: (n) => h(WorkEntry, { key: n, n }) }),
       h(Repeating, {
         title: 'Education',
         initial: 1,
         render: (n) => [
-          h(Search, { key: 'a', name: `edu${n}.school`, id: 'schoolItem', label: 'School or University', options: ['University of California, Berkeley', 'University of California, Los Angeles'] }),
-          h(Dropdown, { key: 'b', name: `edu${n}.degree`, id: 'degree', label: 'Degree', options: ['Associate of Arts', 'Bachelor of Science', 'Master of Science'] }),
-          h(Search, { key: 'c', name: `edu${n}.field`, id: 'field-of-study', label: 'Field of Study', options: ['Mathematics', 'Applied Mathematics', 'Physics'] }),
+          h(Search, { key: 'a', name: `edu${n}.school`, id: 'schoolItem', label: 'School or University', initial: pre(['University of California, Los Angeles']), options: ['University of California, Berkeley', 'University of California, Los Angeles'] }),
+          h(Dropdown, { key: 'b', name: `edu${n}.degree`, id: 'degree', label: 'Degree', initial: pre('Master of Science'), options: ['Associate of Arts', 'Bachelor of Science', 'Master of Science'] }),
+          h(Search, { key: 'c', name: `edu${n}.field`, id: 'field-of-study', label: 'Field of Study', initial: pre(['Mathematics']), options: ['Mathematics', 'Applied Mathematics', 'Physics'] }),
           h(Text, { key: 'd', name: `edu${n}.gpa`, id: 'gradeAverage', label: 'Overall Result (GPA)' }),
           h(DateField, { key: 'e', name: `edu${n}.from`, id: 'firstYearAttended', label: 'From', parts: ['Year'] }),
-          h(DateField, { key: 'f', name: `edu${n}.to`, id: 'lastYearAttended', label: 'To (Actual or Expected)', parts: ['Year'] }),
+          h(DateField, { key: 'f', name: `edu${n}.to`, id: 'lastYearAttended', label: 'To (Actual or Expected)', parts: ['Year'], initial: pre({ Year: 2021 }) }),
         ],
       }),
       h('h3', null, 'Skills'),
-      h(Search, { name: 'skills', id: 'skills', label: 'Type to Add Skills', multi: true, options: ['Python', 'Python Scripting', 'SQL', 'JavaScript'] }),
+      h(Search, { name: 'skills', id: 'skills', label: 'Type to Add Skills', multi: true, initial: pre(['JavaScript']), options: ['Python', 'Python Scripting', 'SQL', 'JavaScript'] }),
       h('h3', null, 'Resume/CV'),
-      h(Upload, { name: 'resume', id: 'attachments' }),
+      h(Upload, { name: 'resume', id: 'attachments', initial: pre('cv.txt') }),
       h(Repeating, { title: 'Websites', render: (n) => h(Text, { name: `site${n}.url`, id: 'url', label: 'URL' }) }),
       h('h3', null, 'Social Network URLs'),
       h(Text, { name: 'linkedin', id: 'linkedInAccount', label: 'LinkedIn' }),
@@ -293,7 +316,7 @@
       h(Dropdown, { name: 'q.sponsorship', id: 'b2e4', required: true, label: 'Will you now or in the future require sponsorship for employment visa status?', options: ['Yes, I will require sponsorship', 'No, I will not require sponsorship'] }),
       h(Dropdown, { name: 'q.noSponsor', id: 'c3d5', label: 'Are you authorized to work in the US without the need for sponsorship?', options: YES_NO }),
       h(Dropdown, { name: 'q.over18', id: 'd4c6', label: 'Are you at least 18 years of age?', options: YES_NO }),
-      h(Dropdown, { name: 'q.shift', id: 'e5b7', required: true, label: 'Which shift do you prefer?', options: ['Day', 'Night'] }),
+      h(Dropdown, { name: 'q.shift', id: 'e5b7', required: true, label: 'Which shift do you prefer?', initial: pre('Day'), options: ['Day', 'Night'] }),
       h(Dropdown, { name: 'q.relocate', id: 'f6a8', label: 'Are you willing to relocate?', options: YES_NO }),
       h(Text, { name: 'q.salary', id: 'a7b9', label: 'What are your salary expectations?' }),
       h(Text, { name: 'q.why', id: 'b8c0', label: 'Why do you want to work here?', textarea: true }),
@@ -303,7 +326,7 @@
         name: 'eeo.ethnicity', id: 'ethnicity', label: 'Please select the ethnicity which most accurately describes how you identify yourself.',
         options: ['Asian (Not Hispanic or Latino) (United States of America)', 'Hispanic or Latino (United States of America)', 'White (Not Hispanic or Latino) (United States of America)', 'I do not wish to answer'],
       }),
-      h(Dropdown, { name: 'eeo.gender', id: 'gender', label: 'Gender', options: ['Male', 'Female', 'I do not wish to answer'] }),
+      h(Dropdown, { name: 'eeo.gender', id: 'gender', label: 'Gender', initial: pre('Male'), options: ['Male', 'Female', 'I do not wish to answer'] }),
       h(Dropdown, {
         name: 'eeo.veteran', id: 'veteranStatus', label: 'Veteran Status',
         options: ['I IDENTIFY AS ONE OR MORE OF THE CLASSIFICATIONS OF PROTECTED VETERAN LISTED ABOVE', 'I IDENTIFY AS A VETERAN, JUST NOT A PROTECTED VETERAN', 'I AM NOT A VETERAN', 'I DO NOT WISH TO SELF-IDENTIFY'],

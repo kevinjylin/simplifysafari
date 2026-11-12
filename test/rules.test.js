@@ -3,7 +3,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 
 require('../extension/src/match.js');
-const AF = require('../extension/src/workday/rules.js');
+const AF = require('../extension/src/rules.js');
 
 // profile.js needs a browser storage API to load; only its pure helpers are used here.
 globalThis.browser = { storage: { local: {} } };
@@ -108,7 +108,7 @@ test('work experience entries map by index', () => {
 test('education entries', () => {
   const at = (label, type = 'text') => value(field(label, { section: 'education', index: 1, type }));
   assert.equal(at('School or University', 'searchable'), 'Cal');
-  assert.equal(at('Degree', 'dropdown'), 'Bachelor of Science');
+  assert.deepEqual(at('Degree', 'dropdown'), ['Bachelor of Science', "Bachelor's Degree"]);
   assert.equal(at('Field of Study', 'searchable'), 'Mathematics');
   assert.deepEqual(at('To (Actual or Expected)', 'date'), { month: null, day: null, year: 2020 });
 });
@@ -174,4 +174,41 @@ test('self-identification answers resolve to option matchers', () => {
   assert.equal(value(field('Name', { section: 'self identify' })), 'Ada Lovelace');
   const date = value(field('Date', { type: 'date', section: 'self identify' }));
   assert.equal(date.year, new Date().getFullYear());
+});
+
+test('greenhouse labels', () => {
+  const gh = (label, extra = {}) => value(field(label, { section: 'application', ...extra }));
+  assert.deepEqual(gh('Location (City)', { type: 'select' }), [
+    'Oakland, California, United States',
+    'Oakland, California',
+    'Oakland',
+  ]);
+  assert.equal(gh('Website'), 'https://ada.dev');
+  assert.equal(gh('LinkedIn Profile'), 'https://linkedin.com/in/ada');
+  assert.deepEqual(AF.resolve(field('Preferred First Name'), profile()), { ignore: true });
+  assert.equal(gh('How did you hear about this job?'), 'LinkedIn');
+  assert.equal(gh('Do you require visa sponsorship?', { type: 'select' }), 'No');
+
+  // Education: one select per degree / discipline, and month + year boxes for dates.
+  const edu = (label, type = 'select') => value(field(label, { section: 'education', index: 1, type }));
+  assert.equal(edu('School'), 'Cal');
+  assert.equal(edu('Discipline'), 'Mathematics');
+  assert.deepEqual(edu('Start date year', 'text'), { month: null, day: null, year: 2016 });
+  assert.deepEqual(edu('End date month'), { month: null, day: null, year: 2020 });
+  const degrees = ["Associate's Degree", "Bachelor's Degree", 'Master of Business Administration (M.B.A.)', "Master's Degree", 'Doctor of Philosophy (Ph.D.)'];
+  assert.equal(AF.bestOption(degrees, edu('Degree')), 1);
+  const mba = profile({ education: [{ school: 'X', degree: 'MBA' }] });
+  assert.equal(AF.bestOption(degrees, value(field('Degree', { section: 'education', index: 1, type: 'select' }), mba)), 2);
+  const ms = profile({ education: [{ school: 'X', degree: 'M.S. Computer Science' }] });
+  assert.equal(AF.bestOption(degrees, value(field('Degree', { section: 'education', index: 1, type: 'select' }), ms)), 3);
+
+  // Greenhouse's phone country list reads "United States +1".
+  assert.equal(AF.bestOption(['United States Minor Outlying Islands +1', 'United States +1', 'Canada +1'], gh('Country', { type: 'select' })), 1);
+  const race = ['American Indian or Alaska Native', "I don't wish to answer", 'Asian', 'White'];
+  assert.equal(AF.bestOption(race, gh('Race and Ethnicity', { type: 'select' })), 2);
+  assert.equal(AF.bestOption(['Man', 'Woman', 'Non-binary or third gender', "I don't wish to answer"], gh('Gender Identity (optional)', { type: 'select' })), 1);
+  assert.equal(
+    AF.bestOption(['Yes, I have a disability, or have had one in the past', 'No, I do not have a disability and have not had one in the past', "I don't wish to answer"], gh('Disability Status', { type: 'select' })),
+    2
+  );
 });

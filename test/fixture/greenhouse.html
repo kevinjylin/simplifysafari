@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mock Greenhouse application</title>
+    <style>
+      body { font: 14px/1.4 -apple-system, sans-serif; margin: 0; display: grid; grid-template-columns: 1fr 380px; }
+      #app { padding: 24px 32px 200px; max-width: 640px; }
+      aside { padding: 16px; background: #f4f4f6; height: 100vh; overflow: auto; position: sticky; top: 0; box-sizing: border-box; }
+      .field-wrapper, .select, .text-input-wrapper, .file-upload, fieldset { margin: 12px 0; }
+      .label, legend { display: block; font-weight: 600; margin-bottom: 4px; }
+      .input { width: 100%; padding: 6px; box-sizing: border-box; }
+      .select__control { display: flex; border: 1px solid #999; border-radius: 4px; padding: 4px; }
+      .select__value-container { flex: 1; display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+      .select__input { border: 0; flex: 1; min-width: 40px; outline: none; }
+      .select__placeholder { color: #888; }
+      .select__multi-value { background: #dde8ff; padding: 2px 8px; border-radius: 10px; }
+      .select-shell { position: relative; }
+      .select__menu { position: absolute; left: 0; right: 0; z-index: 10; background: #fff; border: 1px solid #999; max-height: 240px; overflow: auto; }
+      .select__option, .select__menu-notice { padding: 4px 8px; cursor: pointer; }
+      .select__option--is-selected { background: #0a66d8; color: #fff; }
+      .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+      .education--form { border-top: 1px solid #ccc; margin-top: 16px; }
+      fieldset { border: 0; padding: 0; }
+      pre { font-size: 11px; white-space: pre-wrap; }
+      .pass { color: #0a7f2e; } .fail { color: #c9372c; font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <div id="app"></div>
+    <aside>
+      <h3 id="verdict">Not run</h3>
+      <div id="results"></div>
+      <h3>Page state</h3>
+      <pre id="state">{}</pre>
+    </aside>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="setup.js"></script>
+    <script src="../../extension/src/match.js"></script>
+    <script src="../../extension/src/dom.js"></script>
+    <script src="../../extension/src/profile.js"></script>
+    <script src="../../extension/src/rules.js"></script>
+    <script src="../../extension/src/engine.js"></script>
+    <script src="../../extension/src/greenhouse/fields.js"></script>
+    <script src="../../extension/src/greenhouse/fill.js"></script>
+    <script src="../../extension/src/content.js"></script>
+    <script src="greenhouse-mock.js"></script>
+    <script src="greenhouse-run.js"></script>
+  </body>
+</html>

@@ -1,0 +1,8 @@
+{
+  "name": "applyfill",
+  "private": true,
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "fixture": "python3 -m http.server 4173"
+  }
+}

@@ -1,33 +1,12 @@
-// Fills the Workday page: one filler per kind of control, plus the pass that
-// walks the page and collects a report. Never clicks Next, Save or Submit.
+// Fills the Workday page: one filler per kind of Workday control. The pass over
+// the page and the generic inputs live in ../engine.js.
 //
-// A field that already holds a value is compared with the profile: left alone
-// if it matches, replaced if it doesn't. (Workday's résumé parser pre-fills a
-// lot, and gets a lot wrong.)
+// Workday's résumé parser pre-fills a lot and gets a lot wrong, which is why
+// existing values are checked rather than kept.
 (function (root) {
   'use strict';
   const AF = (root.Applyfill = root.Applyfill || {});
-  const { sleep, waitFor, text, visible, sel, norm, loose } = AF;
-
-  const firstString = (value) => String(AF.candidates(value).find((c) => typeof c === 'string') ?? '');
-  /** Result for a successful fill; `had` says a previous value was overwritten. */
-  const filled = (had) => (had ? { status: 'filled', replaced: true } : 'filled');
-
-  // ── Text ───────────────────────────────────────────────────────────
-
-  async function fillText(f, value, selector) {
-    const input = f.el.querySelector(selector);
-    if (!input) return 'failed';
-    const wanted = firstString(value);
-    const had = input.value.trim();
-    if (loose(had) === loose(wanted)) return 'already';
-    AF.typeInto(input, wanted);
-    AF.blur(input);
-    await sleep(30);
-    // If the page's own state rejected the change, React will have reverted it.
-    // Compared loosely because Workday reformats some values (phone numbers) on blur.
-    return loose(input.value) === loose(wanted) ? filled(had) : 'failed';
-  }
+  const { sleep, waitFor, text, visible, sel, norm, loose, firstString, filled } = AF;
 
   // ── Option lists (shared by dropdowns and search prompts) ──────────
 
@@ -44,16 +23,19 @@
    * Options are recognised by having appeared since the call started, so it
    * doesn't matter where in the document Workday renders the list.
    */
-  async function revealOptions(trigger, attempts) {
+  async function revealOptions(trigger, attempts, settled = () => false) {
     const prior = new Set(shownOptions());
     const fresh = () => {
       const now = shownOptions().filter((o) => !prior.has(o));
       return now.length ? now : null;
     };
     for (const attempt of attempts) {
-      if (!trigger.isConnected) return null;
+      if (!trigger.isConnected || settled()) return null;
       attempt(trigger);
-      let options = await waitFor(fresh, { timeout: 800 });
+      // `settled` lets the caller stop early when the control resolved itself
+      // without showing a list (a search with exactly one match).
+      let options = await waitFor(() => fresh() || settled(), { timeout: 800 });
+      if (options === true) return null;
       // The control says it opened; its options may still be loading.
       if (!options && trigger.getAttribute('aria-expanded') === 'true') options = await waitFor(fresh, { timeout: 2500 });
       if (options) {
@@ -173,9 +155,24 @@
 
   const selectedTexts = (f) => selectedItems(f).map(itemText);
 
-  function isSelected(f, want) {
-    const have = selectedTexts(f).map(norm);
-    return AF.candidates(want).some((c) => have.some((h) => (c instanceof RegExp ? c.test(h) : norm(c) === h)));
+  function itemMatches(item, want) {
+    const have = norm(itemText(item));
+    return AF.candidates(want).some((c) => (c instanceof RegExp ? c.test(have) : norm(c) === have));
+  }
+
+  const isSelected = (f, want) => selectedItems(f).some((item) => itemMatches(item, want));
+
+  const openPopups = () => [...document.querySelectorAll('[data-automation-widget="wd-popup"]')].filter(visible);
+
+  /** A search with no results still leaves its "No Items" popup up; close it. */
+  async function closeEmptyPrompt(input, popupsBefore) {
+    const stray = () => openPopups().some((p) => !popupsBefore.has(p));
+    if (!stray()) return;
+    AF.key(input, 'Escape');
+    await sleep(60);
+    if (!stray()) return;
+    AF.press(document.body);
+    document.body.click();
   }
 
   const promptInput = (f) => f.el.querySelector('[data-automation-id="multiSelectContainer"] input, input');
@@ -187,23 +184,29 @@
       if (!input) return false;
       const before = selectedTexts(f).join('\n');
       const changed = () => selectedTexts(f).join('\n') !== before;
+      const popupsBefore = new Set(openPopups());
       let picked = false;
 
       // Typing and pressing Enter either selects a unique match outright or
       // shows a list of results; failing that, try opening the prompt by click.
-      const options = await revealOptions(input, [
-        (el) => {
-          AF.typeInto(el, query);
-          AF.key(el, 'Enter');
-        },
-        (el) => !changed() && el.click(),
-      ]);
+      const options = await revealOptions(
+        input,
+        [
+          (el) => {
+            AF.typeInto(el, query);
+            AF.key(el, 'Enter');
+          },
+          (el) => el.click(),
+        ],
+        changed
+      );
       if (options && !changed()) {
         const pick = AF.bestOption(options.map(text), want);
         const chosen = pick >= 0 ? options[pick] : options.length === 1 ? options[0] : null;
         if (chosen) picked = await choose(chosen, changed);
       }
       if (options) await dismiss(input, options);
+      else await closeEmptyPrompt(input, popupsBefore);
       if (picked || changed() || isSelected(f, want)) return true;
       if (input.isConnected) AF.typeInto(input, '');
     }
@@ -214,7 +217,7 @@
   function removeStale(f, want) {
     const items = selectedItems(f);
     if (items.length < 2) return;
-    const keep = items.findLast((item) => isSelected({ el: item.parentElement, ...f }, want)) || items[items.length - 1];
+    const keep = items.findLast((item) => itemMatches(item, want)) || items[items.length - 1];
     for (const item of items) {
       if (item === keep) continue;
       const remove = item.querySelector('[data-automation-id="DELETE_charm"], [data-automation-id*="delete" i]');
@@ -242,30 +245,6 @@
       return { status, missing, diag: { control: AF.skeleton(f.el), appeared: popups() } };
     }
     return added ? filled(had && !multi) : 'already';
-  }
-
-  // ── Radio groups and checkboxes ────────────────────────────────────
-
-  async function fillChoice(f, value, kind) {
-    const inputs = [...f.el.querySelectorAll(`input[type="${kind}"]`)];
-    const labels = inputs.map((i) => AF.optionLabel(f.el, i));
-    const want = typeof value === 'boolean' ? (value ? 'Yes' : 'No') : value;
-    const pick = AF.bestOption(labels, want);
-    if (pick < 0) return { status: 'nomatch', options: labels };
-    if (inputs[pick].checked) return 'already';
-    const had = inputs.some((i) => i.checked);
-    inputs[pick].click();
-    await sleep(30);
-    return inputs[pick].checked || !inputs[pick].isConnected ? filled(had) : 'failed';
-  }
-
-  async function fillCheckbox(f, value) {
-    const input = f.el.querySelector('input[type="checkbox"]');
-    const want = typeof value === 'boolean' ? value : /^(yes|true|checked)$/i.test(String(value).trim());
-    if (input.checked === want) return 'already';
-    input.click();
-    await sleep(30);
-    return input.checked === want || !input.isConnected ? filled(!want) : 'failed';
   }
 
   // ── Dates: separate Month / Day / Year spin inputs ─────────────────
@@ -307,14 +286,6 @@
 
   // ── Résumé upload ──────────────────────────────────────────────────
 
-  function toFile(resume) {
-    const base64 = resume.dataUrl.slice(resume.dataUrl.indexOf(',') + 1);
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-    return new File([bytes], resume.name, { type: resume.type || 'application/pdf' });
-  }
-
   const UPLOADED = '[data-automation-id="file-upload-item"], [data-automation-id="file-upload-successful"]';
 
   async function fillFile(f, resume) {
@@ -325,11 +296,7 @@
     }
     const input = f.el.querySelector('input[type="file"]');
     if (!input) return 'failed';
-    const transfer = new DataTransfer();
-    transfer.items.add(toFile(resume));
-    input.files = transfer.files;
-    input.dispatchEvent(new Event('input', { bubbles: true }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    AF.attachFile(input, resume);
     const shown = await waitFor(() => !f.el.isConnected || f.el.querySelector(UPLOADED), { timeout: 4000 });
     return shown ? 'filled' : 'failed';
   }
@@ -339,19 +306,19 @@
   function fillField(f, value) {
     switch (f.type) {
       case 'text':
-        return fillText(f, value, sel.TEXT_INPUT);
+        return AF.fillInput(f.el.querySelector(sel.TEXT_INPUT), value);
       case 'textarea':
-        return fillText(f, value, 'textarea');
+        return AF.fillInput(f.el.querySelector('textarea'), value);
       case 'dropdown':
         return fillDropdown(f, value);
       case 'searchable':
         return fillSearchable(f, value);
       case 'radio':
-        return fillChoice(f, value, 'radio');
+        return AF.fillChoice(f.el, value, 'radio');
       case 'checkboxes':
-        return fillChoice(f, value, 'checkbox');
+        return AF.fillChoice(f.el, value, 'checkbox');
       case 'checkbox':
-        return fillCheckbox(f, value);
+        return AF.fillCheckbox(f.el.querySelector('input[type="checkbox"]'), value);
       case 'date':
         return fillDate(f, value);
       case 'file':
@@ -361,7 +328,7 @@
     }
   }
 
-  /** Does the field hold an answer right now? (A lone checkbox always "has" one.) */
+  /** Does the field hold an answer right now? */
   function hasValue(f) {
     switch (f.type) {
       case 'text':
@@ -379,6 +346,8 @@
         return dateInputs(f).some((p) => p.input.value.trim());
       case 'file':
         return Boolean(f.el.querySelector(UPLOADED));
+      case 'checkbox':
+        return f.el.querySelector('input[type="checkbox"]').checked;
       default:
         return false;
     }
@@ -406,79 +375,16 @@
 
   // ── The whole page ─────────────────────────────────────────────────
 
-  const RANK = { filled: 6, partial: 5, failed: 4, nomatch: 4, differs: 4, extra: 3, empty: 3, unknown: 3, already: 2, kept: 2, ignored: 1 };
-  const titleCase = (s) => s.replace(/\b[a-z]/g, (c) => c.toUpperCase());
-
-  /**
-   * Fill everything recognisable on the current page.
-   * Returns one report row per field:
-   *   { label, id, type, section, index, required, status, replaced?, options?, missing?, diag?, el }
-   */
-  AF.fillPage = async function fillPage(profile, resume) {
-    const ctx = {
-      resume,
-      // LinkedIn goes in its own field when the page has one, otherwise into Websites.
-      includeLinkedin: !AF.discover().some((f) => /linkedin/i.test(f.label)),
-    };
-
-    await ensureEntries(/^work experience$/, profile.work.length);
-    await ensureEntries(/^education$/, profile.education.length);
-    await ensureEntries(/^websites?$/, AF.websiteList(profile, ctx).length);
-
-    const rows = new Map();
-    const seen = new WeakSet();
-    const extras = new Set();
-    // Filling one field can reveal others (choosing a country shows the state
-    // list), so keep sweeping until a pass finds nothing new.
-    for (let pass = 0; pass < 6; pass++) {
-      const fresh = AF.discover().filter((f) => !seen.has(f.el));
-      if (!fresh.length) break;
-      for (const f of fresh) {
-        seen.add(f.el);
-        if (!f.el.isConnected) continue;
-        const row = { ...f, status: 'unknown' };
-        const answer = AF.resolve(f, profile, ctx);
-        if (!answer || answer.empty) {
-          // Nothing to compare against, so an existing answer stands.
-          row.status = hasValue(f) ? 'kept' : answer ? 'empty' : 'unknown';
-        } else if (answer.ignore) {
-          row.status = 'ignored';
-        } else if (answer.extra) {
-          // One line per surplus entry, not one per field in it.
-          const entry = `${f.section} ${f.index}`;
-          row.status = extras.has(entry) ? 'ignored' : 'extra';
-          if (!extras.has(entry)) row.label = titleCase(entry);
-          extras.add(entry);
-        } else {
-          try {
-            const result = await fillField(f, answer.value);
-            if (typeof result === 'string') row.status = result;
-            else Object.assign(row, result);
-          } catch (err) {
-            row.status = 'failed';
-            row.error = String(err && err.message ? err.message : err);
-          }
-        }
-        // A re-rendered field shows up again as a new element; keep its best outcome.
-        const key = `${f.section}#${f.index}#${f.id}#${row.label}`;
-        const prior = rows.get(key);
-        if (!prior || RANK[row.status] > RANK[prior.status]) rows.set(key, row);
-        else prior.el = row.el;
-      }
-      await sleep(350);
-    }
-    return [...rows.values()];
+  const site = {
+    discover: () => AF.discover(),
+    fillField,
+    hasValue,
+    async prepare(profile, ctx) {
+      await ensureEntries(/^work experience$/, profile.work.length);
+      await ensureEntries(/^education$/, profile.education.length);
+      await ensureEntries(/^websites?$/, AF.websiteList(profile, ctx).length);
+    },
   };
 
-  const ATTENTION = ['unknown', 'empty', 'nomatch', 'failed', 'partial', 'extra', 'differs'];
-
-  AF.summarize = function summarize(rows) {
-    const done = rows.filter((r) => r.status === 'filled' || r.status === 'partial');
-    return {
-      filled: done.filter((r) => !r.replaced).length,
-      corrected: done.filter((r) => r.replaced).length,
-      already: rows.filter((r) => r.status === 'already' || r.status === 'kept').length,
-      attention: rows.filter((r) => ATTENTION.includes(r.status)),
-    };
-  };
+  AF.fillPage = (profile, resume) => AF.runFill(site, profile, resume);
 })(globalThis);

@@ -23,10 +23,10 @@ async function init() {
   try {
     reply = await api.tabs.sendMessage((await activeTab()).id, { type: 'applyfill:status' });
   } catch {
-    // No content script here: not a Workday page, or the site isn't allowed yet.
+    // No content script here: not a Workday or Greenhouse page, or the site isn't allowed yet.
   }
   if (!reply) {
-    status.textContent = 'Open a Workday application form, and allow Applyfill on that site if Safari asks.';
+    status.textContent = 'Open a Workday or Greenhouse application form, and allow Applyfill on that site if Safari asks.';
   } else if (!reply.fields) {
     status.textContent = 'No form fields on this page yet. Start the application, then try again.';
   } else {
@@ -42,7 +42,7 @@ fill.addEventListener('click', async () => {
     const result = await api.tabs.sendMessage((await activeTab()).id, { type: 'applyfill:fill' });
     if (result && result.error) throw new Error(result.error);
     status.textContent = result
-      ? `${result.filled} filled, ${result.attention} need you. Details are on the page.`
+      ? `${result.filled} filled, ${result.corrected} corrected, ${result.attention} need you. Details are on the page.`
       : 'Done. Details are on the page.';
   } catch (err) {
     status.textContent = `Autofill failed: ${err.message}`;

@@ -36,13 +36,7 @@
     return null;
   }
 
-  const clean = (s) => s.replace(/\*/g, '').replace(/\s+/g, ' ').trim();
-
-  /** Label text of one radio/checkbox option. */
-  AF.optionLabel = function optionLabel(w, input) {
-    const label = (input.id && w.querySelector(`label[for="${CSS.escape(input.id)}"]`)) || input.closest('label');
-    return clean(text(label) || input.getAttribute('aria-label') || text(input.parentElement));
-  };
+  const clean = AF.cleanLabel;
 
   function labelOf(w, type) {
     const legend = w.querySelector('legend');

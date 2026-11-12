@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Applyfill",
-  "description": "Autofill Workday job applications from a profile stored only on this device.",
+  "description": "Autofill Workday and Greenhouse job applications from a profile stored only on this device.",
   "version": "0.1.0",
   "icons": {
     "48": "icons/icon-48.png",
@@ -28,7 +28,11 @@
   "permissions": ["storage", "activeTab"],
   "host_permissions": [
     "*://*.myworkdayjobs.com/*",
-    "*://*.myworkdaysite.com/*"
+    "*://*.myworkdaysite.com/*",
+    "*://boards.greenhouse.io/*",
+    "*://job-boards.greenhouse.io/*",
+    "*://boards.eu.greenhouse.io/*",
+    "*://job-boards.eu.greenhouse.io/*"
   ],
   "content_scripts": [
     {
@@ -40,9 +44,30 @@
         "src/match.js",
         "src/dom.js",
         "src/profile.js",
+        "src/rules.js",
+        "src/engine.js",
         "src/workday/fields.js",
-        "src/workday/rules.js",
         "src/workday/fill.js",
+        "src/content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://boards.greenhouse.io/*",
+        "*://job-boards.greenhouse.io/*",
+        "*://boards.eu.greenhouse.io/*",
+        "*://job-boards.eu.greenhouse.io/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "src/match.js",
+        "src/dom.js",
+        "src/profile.js",
+        "src/rules.js",
+        "src/engine.js",
+        "src/greenhouse/fields.js",
+        "src/greenhouse/fill.js",
         "src/content.js"
       ],
       "run_at": "document_idle"

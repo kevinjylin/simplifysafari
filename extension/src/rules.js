@@ -38,6 +38,36 @@
       : country;
   }
 
+  /**
+   * A single "Location (City)" answer, most specific first: Greenhouse
+   * suggests places like "Oakland, California, United States".
+   */
+  function locationAnswer(p) {
+    const { city, state, country } = p.personal;
+    if (!String(city).trim()) return '';
+    const region = String(state).trim() ? [].concat(stateAnswer(state))[0] : '';
+    const nation = String(country).trim() ? [].concat(countryAnswer(country)).pop() : '';
+    const parts = (...xs) => xs.filter(Boolean).join(', ');
+    return [...new Set([parts(city, region, nation), parts(city, region), city])];
+  }
+
+  /** The profile's degree, then the generic names forms list it under. */
+  function degreeAnswer(degree) {
+    const d = norm(degree);
+    if (!d) return '';
+    const generic = [
+      [/^(associate|a a|a s)\b/, "Associate's Degree"],
+      [/^(bachelor|b a|b s|ba|bs|bsc|beng|b eng|b tech|btech)\b/, "Bachelor's Degree"],
+      [/^(master of business|mba|m b a)\b/, 'Master of Business Administration'],
+      [/^(master|m a|m s|ma|ms|msc|meng|m eng)\b/, "Master's Degree"],
+      [/^(doctor of philosophy|phd|ph d|doctorate)\b/, 'Doctor of Philosophy'],
+      [/^(juris doctor|jd|j d)\b/, 'Juris Doctor'],
+      [/^(doctor of medicine|md|m d)\b/, 'Doctor of Medicine'],
+      [/^high school|^ged\b/, 'High School'],
+    ].filter(([re]) => re.test(d)).map(([, name]) => name);
+    return generic.length ? [degree, ...generic] : degree;
+  }
+
   /** Workday wants the national number: digits only, no country prefix. */
   function phoneDigits(p) {
     const digits = String(p.personal.phone).replace(/\D/g, '');
@@ -98,7 +128,7 @@
   // free-form question mentioning "city" or "email" isn't mistaken for the field.
   const RULES = [
     // ── Work experience ──────────────────────────────────────────────
-    { section: WORK, label: /currently work|current (position|job|employer)/, get: fromEntry('work', (e) => Boolean(e.current)) },
+    { section: WORK, label: /currently work|current (position|job|employer|role)|^current$/, get: fromEntry('work', (e) => Boolean(e.current)) },
     { section: WORK, label: /job title|position|^title$|^role$/, get: fromEntry('work', (e) => e.title) },
     { section: WORK, label: /company|employer|organi[sz]ation/, get: fromEntry('work', (e) => e.company) },
     { section: WORK, label: /location/, get: fromEntry('work', (e) => e.location) },
@@ -108,7 +138,7 @@
 
     // ── Education ────────────────────────────────────────────────────
     { section: EDU, label: /school|university|college|institution/, get: fromEntry('education', (e) => e.school) },
-    { section: EDU, label: /degree/, get: fromEntry('education', (e) => e.degree) },
+    { section: EDU, label: /degree/, get: fromEntry('education', (e) => degreeAnswer(e.degree)) },
     { section: EDU, label: /field of study|major|discipline/, get: fromEntry('education', (e) => e.field) },
     { section: EDU, label: /gpa|overall result|grade/, get: fromEntry('education', (e) => e.gpa) },
     { section: EDU, label: /^from|^start|first year/, get: fromEntry('education', (e) => dateParts(null, e.startYear)) },
@@ -118,6 +148,7 @@
     { section: /^websites?/, label: /url|website|link/, get: (p, f, ctx) => AF.websiteList(p, ctx)[(f.index || 1) - 1] ?? IGNORE },
     { label: /linkedin/, get: (p) => p.links.linkedin },
     { label: /github/, get: (p) => p.links.github },
+    { short: true, label: /^(personal |your )?(website|portfolio|blog)( url| link)?$/, get: (p) => p.links.portfolio || p.links.github || p.links.other },
     { label: /twitter|facebook|instagram/, get: () => IGNORE },
     { type: 'searchable', label: /skill/, get: (p) => (p.skills.length ? { multi: p.skills } : '') },
     { type: 'file', either: /resume|\bcv\b|curriculum/, not: /cover letter/, get: (p, f, ctx) => ctx.resume || '' },
@@ -133,6 +164,7 @@
     { short: true, label: /email/, get: (p) => p.personal.email },
     { short: true, label: /address line 2|apartment|suite|^unit/, get: (p) => p.personal.address2 || IGNORE },
     { short: true, label: /address line 1|street|^address$/, get: (p) => p.personal.address1 },
+    { short: true, label: /^(current )?location( city)?$/, get: (p) => locationAnswer(p) },
     { short: true, label: /^city|^town/, get: (p) => p.personal.city },
     { short: true, label: /postal|zip/, get: (p) => p.personal.postalCode },
     { short: true, label: /^state|province|^region$|territory/, get: (p) => stateAnswer(p.personal.state) },
