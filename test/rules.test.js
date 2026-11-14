@@ -108,7 +108,7 @@ test('work experience entries map by index', () => {
 test('education entries', () => {
   const at = (label, type = 'text') => value(field(label, { section: 'education', index: 1, type }));
   assert.equal(at('School or University', 'searchable'), 'Cal');
-  assert.deepEqual(at('Degree', 'dropdown'), ['Bachelor of Science', "Bachelor's Degree"]);
+  assert.deepEqual(at('Degree', 'dropdown').slice(0, 2), ['Bachelor of Science', "Bachelor's Degree"]);
   assert.equal(at('Field of Study', 'searchable'), 'Mathematics');
   assert.deepEqual(at('To (Actual or Expected)', 'date'), { month: null, day: null, year: 2020 });
 });
@@ -201,6 +201,19 @@ test('greenhouse labels', () => {
   assert.equal(AF.bestOption(degrees, value(field('Degree', { section: 'education', index: 1, type: 'select' }), mba)), 2);
   const ms = profile({ education: [{ school: 'X', degree: 'M.S. Computer Science' }] });
   assert.equal(AF.bestOption(degrees, value(field('Degree', { section: 'education', index: 1, type: 'select' }), ms)), 3);
+
+  // Lists that just say "Bachelors" / "Masters" still match, but a different named degree doesn't.
+  const degreeOf = (degree) => value(field('Degree', { section: 'education', index: 1, type: 'select' }), profile({ education: [{ school: 'X', degree }] }));
+  const bs = degreeOf('Bachelor of Science');
+  assert.equal(AF.bestOption(['High School', 'Bachelors', 'Masters', 'PhD'], bs), 1);
+  assert.equal(AF.bestOption(['Associates Degree', 'Bachelors Degree', 'Masters Degree'], bs), 1);
+  assert.equal(AF.bestOption(['High School', 'Bachelors (BA, BS)', 'Masters (MA, MS)'], bs), 1);
+  assert.equal(AF.bestOption(['Bachelor', 'Master'], bs), 0);
+  assert.equal(AF.bestOption(['Bachelor’s', 'Master’s'], bs), 0);
+  assert.equal(AF.bestOption(['Bachelor of Arts', 'Master of Arts'], bs), -1);
+  assert.equal(AF.bestOption(['Bachelors', 'Masters', 'MBA'], degreeOf('M.S. Computer Science')), 1);
+  assert.equal(AF.bestOption(['Bachelors', 'Master of Business Administration'], degreeOf('M.S.')), -1);
+  assert.equal(AF.bestOption(['Associates', 'Bachelors'], degreeOf('A.A.')), 0);
 
   // Greenhouse's phone country list reads "United States +1".
   assert.equal(AF.bestOption(['United States Minor Outlying Islands +1', 'United States +1', 'Canada +1'], gh('Country', { type: 'select' })), 1);

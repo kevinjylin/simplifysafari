@@ -51,20 +51,28 @@
     return [...new Set([parts(city, region, nation), parts(city, region), city])];
   }
 
+  /**
+   * Plain "Bachelor(s)" / "Master(s)" / "Associate(s)" options, with or without
+   * "degree" or a note after it, but not a different named degree like
+   * "Bachelor of Arts" or "Master of Business Administration". `query` is what
+   * to type when the dropdown has to be searched.
+   */
+  const level = (word) => Object.assign(new RegExp(`^${word}( s|s)?\\b(?! of )`), { query: word });
+
   /** The profile's degree, then the generic names forms list it under. */
   function degreeAnswer(degree) {
     const d = norm(degree);
     if (!d) return '';
     const generic = [
-      [/^(associate|a a|a s)\b/, "Associate's Degree"],
-      [/^(bachelor|b a|b s|ba|bs|bsc|beng|b eng|b tech|btech)\b/, "Bachelor's Degree"],
-      [/^(master of business|mba|m b a)\b/, 'Master of Business Administration'],
-      [/^(master|m a|m s|ma|ms|msc|meng|m eng)\b/, "Master's Degree"],
-      [/^(doctor of philosophy|phd|ph d|doctorate)\b/, 'Doctor of Philosophy'],
-      [/^(juris doctor|jd|j d)\b/, 'Juris Doctor'],
-      [/^(doctor of medicine|md|m d)\b/, 'Doctor of Medicine'],
-      [/^high school|^ged\b/, 'High School'],
-    ].filter(([re]) => re.test(d)).map(([, name]) => name);
+      [/^(associate|a a|a s)\b/, ["Associate's Degree", level('associate')]],
+      [/^(bachelor|b a|b s|ba|bs|bsc|beng|b eng|b tech|btech)\b/, ["Bachelor's Degree", level('bachelor')]],
+      [/^(master of business|mba|m b a)\b/, ['Master of Business Administration']],
+      [/^(master|m a|m s|ma|ms|msc|meng|m eng)\b/, ["Master's Degree", level('master')]],
+      [/^(doctor of philosophy|phd|ph d|doctorate)\b/, ['Doctor of Philosophy']],
+      [/^(juris doctor|jd|j d)\b/, ['Juris Doctor']],
+      [/^(doctor of medicine|md|m d)\b/, ['Doctor of Medicine']],
+      [/^high school|^ged\b/, ['High School']],
+    ].filter(([re]) => re.test(d)).flatMap(([, names]) => names);
     return generic.length ? [degree, ...generic] : degree;
   }
 

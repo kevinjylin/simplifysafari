@@ -124,7 +124,10 @@
   function queries(want) {
     const out = [];
     for (const c of AF.candidates(want)) {
-      if (typeof c !== 'string') continue;
+      if (typeof c !== 'string') {
+        if (c instanceof RegExp && c.query) out.push(c.query);
+        continue;
+      }
       out.push(c);
       // "University of California, Berkeley" is listed as "University of California - Berkeley".
       for (const part of c.split(/\s*[,(–—]\s*|\s+-\s+/)) if (part.trim().length >= 3) out.push(part.trim());
