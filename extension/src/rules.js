@@ -14,6 +14,7 @@
 
   const IGNORE = Symbol('ignore');
   const EXTRA = Symbol('extra');
+  const ASK = Symbol('ask');
 
   const US_STATES = {
     AL: 'Alabama', AK: 'Alaska', AZ: 'Arizona', AR: 'Arkansas', CA: 'California', CO: 'Colorado',
@@ -38,9 +39,17 @@
       : country;
   }
 
+  /** "CA" for "CA" or "California"; '' outside the US list. */
+  function stateCode(state) {
+    const s = String(state).trim();
+    if (US_STATES[s.toUpperCase()]) return s.toUpperCase();
+    return Object.keys(US_STATES).find((code) => norm(US_STATES[code]) === norm(s)) || '';
+  }
+
   /**
-   * A single "Location (City)" answer, most specific first: Greenhouse
-   * suggests places like "Oakland, California, United States".
+   * A single "Location (City)" answer, most specific first: Greenhouse and
+   * Ashby suggest places like "Oakland, California, United States", Lever
+   * lists "Oakland, CA, USA".
    */
   function locationAnswer(p) {
     const { city, state, country } = p.personal;
@@ -48,7 +57,7 @@
     const region = String(state).trim() ? [].concat(stateAnswer(state))[0] : '';
     const nation = String(country).trim() ? [].concat(countryAnswer(country)).pop() : '';
     const parts = (...xs) => xs.filter(Boolean).join(', ');
-    return [...new Set([parts(city, region, nation), parts(city, region), city])];
+    return [...new Set([parts(city, region, nation), parts(city, region), parts(city, stateCode(state)), city])];
   }
 
   /**
@@ -129,6 +138,9 @@
     return p[list].length ? EXTRA : IGNORE;
   };
 
+  /** The job marked current, for "Current company" outside a work-history section. */
+  const currentJob = (p) => p.work.find((w) => w.current);
+
   const WORK = /^work experience|^employment|^experience$/;
   const EDU = /^education/;
 
@@ -151,18 +163,30 @@
     { section: EDU, label: /gpa|overall result|grade/, get: fromEntry('education', (e) => e.gpa) },
     { section: EDU, label: /^from|^start|first year/, get: fromEntry('education', (e) => dateParts(null, e.startYear)) },
     { section: EDU, label: /^to\b|^end|last year|graduat/, get: fromEntry('education', (e) => dateParts(null, e.endYear)) },
+    // Outside an education section: "Which university are you currently attending or did you last attend?"
+    {
+      label: /^(school|university|college)( name)?$|\b(school|university|college) (are|did|do) you (currently |last )?(attend|graduate)/,
+      get: (p) => p.education[0]?.school || '',
+    },
 
     // ── Links, skills, résumé ────────────────────────────────────────
     { section: /^websites?/, label: /url|website|link/, get: (p, f, ctx) => AF.websiteList(p, ctx)[(f.index || 1) - 1] ?? IGNORE },
     { label: /linkedin/, get: (p) => p.links.linkedin },
     { label: /github/, get: (p) => p.links.github },
     { short: true, label: /^(personal |your )?(website|portfolio|blog)( url| link)?$/, get: (p) => p.links.portfolio || p.links.github || p.links.other },
+    { short: true, label: /^other (website|url|link)s?( url)?$/, get: (p) => p.links.other },
     { label: /twitter|facebook|instagram/, get: () => IGNORE },
     { type: 'searchable', label: /skill/, get: (p) => (p.skills.length ? { multi: p.skills } : '') },
     { type: 'file', either: /resume|\bcv\b|curriculum/, not: /cover letter/, get: (p, f, ctx) => ctx.resume || '' },
     { type: 'file', label: /./, get: () => IGNORE },
 
+    // Consent, terms and attestations are the applicant's to tick, whatever else they
+    // mention ("I certify I am over 18"): listed as needing you, never ticked.
+    { type: 'checkbox', label: /consent|i agree|agree to|acknowledg|terms|privacy|certify|attest|confirm that/, get: () => ASK },
+
     // ── Personal details ─────────────────────────────────────────────
+    { short: true, label: /^current (company|employer|organi[sz]ation)( name)?$/, get: (p) => currentJob(p)?.company || '' },
+    { short: true, label: /^current (job )?title$|^current (position|role)$/, get: (p) => currentJob(p)?.title || '' },
     { short: true, label: /preferred|local|phonetic|prefix|suffix|^title$|middle|extension|^county$/, get: () => IGNORE },
     { short: true, label: /first name|given name/, get: (p) => p.personal.firstName },
     { short: true, label: /last name|family name|surname/, get: (p) => p.personal.lastName },
@@ -179,7 +203,7 @@
     { short: true, label: /^country( region)?$/, get: (p) => countryAnswer(p.personal.country) },
 
     // ── Common screening questions ───────────────────────────────────
-    { label: /how did you hear|where did you (hear|learn)|^source/, get: (p) => p.questions.source },
+    { label: /\bhow (did )?you (hear|heard|learn|learned|find|found)( out)? (about|of)\b|where did you (hear|learn|find)|^source\b|referral source/, get: (p) => p.questions.source },
     {
       // "…authorized to work without sponsorship?" is a yes for someone who needs none.
       label: /without (the need for |requiring |needing )?(visa |employer |company )?sponsor/,
@@ -238,7 +262,7 @@
   }
 
   /**
-   * @param field   { type, label, id, section, index }
+   * @param field   { type, label, id, section, index, hint? }
    * @param profile normalised profile
    * @param ctx     { resume, includeLinkedin } – page-level facts the rules need
    */
@@ -246,12 +270,16 @@
     const label = norm(field.label);
     const idText = splitId(field.id || '');
 
+    // Your own answers go by the question as asked; the built-in rules may go by
+    // what the site says the field is (Ashby's `hint`), since employers reword those.
     let value = customAnswer(profile, label);
     if (value === undefined) {
-      const rule = RULES.find((r) => ruleMatches(r, field, label, idText));
+      const ruleLabel = field.hint ? norm(field.hint) : label;
+      const rule = RULES.find((r) => ruleMatches(r, field, ruleLabel, idText));
       if (!rule) return null;
       value = rule.get(profile, field, ctx);
     }
+    if (value === ASK) return null;
     if (value === IGNORE) return { ignore: true };
     if (value === EXTRA) return { extra: true };
     if (value == null || value === '' || (Array.isArray(value) && value.length === 0)) return { empty: true };

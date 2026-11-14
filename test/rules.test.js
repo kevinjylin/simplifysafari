@@ -181,6 +181,7 @@ test('greenhouse labels', () => {
   assert.deepEqual(gh('Location (City)', { type: 'select' }), [
     'Oakland, California, United States',
     'Oakland, California',
+    'Oakland, CA',
     'Oakland',
   ]);
   assert.equal(gh('Website'), 'https://ada.dev');
@@ -224,4 +225,60 @@ test('greenhouse labels', () => {
     AF.bestOption(['Yes, I have a disability, or have had one in the past', 'No, I do not have a disability and have not had one in the past', "I don't wish to answer"], gh('Disability Status', { type: 'select' })),
     2
   );
+});
+
+test('ashby labels', () => {
+  const ab = (label, extra = {}) => value(field(label, { section: 'basic info', ...extra }));
+  assert.equal(ab('Name'), 'Ada Lovelace');
+  assert.equal(ab('Email', { type: 'text' }), 'ada@example.com');
+  assert.equal(ab('LinkedIn Profile'), 'https://linkedin.com/in/ada');
+  // An employer-worded built-in question is matched by what the field is.
+  const where = field('Which country do you intend to work from?', { type: 'combobox', hint: 'Location' });
+  assert.equal(AF.bestOption(['Oakland, Maryland, United States', 'Oakland, California, United States'], value(where)), 1);
+  assert.equal(AF.resolve(field('Which country do you intend to work from?', { type: 'combobox' }), profile()), null);
+  // …but your own answers still go by the question as asked.
+  const p = profile({ custom: [{ question: 'intend to work from', answer: 'Canada' }] });
+  assert.equal(value(where, p), 'Canada');
+  assert.equal(ab('Will you now or in the future require sponsorship to work in the US?', { type: 'yesno' }), 'No');
+  const race = ['Asian or Asian American', 'Black or African American', 'Hispanic or Latino', 'White'];
+  assert.equal(AF.bestOption(race, ab('Which ethnicity(ies) do you identify with? Please select all that apply.', { type: 'checkboxes', section: 'diversity survey' })), 0);
+  assert.equal(AF.bestOption(['Man', 'Woman', 'Non-binary', 'I prefer not to say'], ab('What is your gender identity?', { type: 'radio' })), 1);
+});
+
+test('lever labels', () => {
+  const lv = (label, extra = {}) => value(field(label, { section: 'submit your application', ...extra }));
+  assert.equal(lv('Full name'), 'Ada Lovelace');
+  assert.equal(lv('Phone'), '5550102345');
+  assert.equal(lv('Current company'), 'Engines Ltd', 'the job marked current');
+  assert.deepEqual(AF.resolve(field('Current company'), profile({ work: [] })), { empty: true });
+  assert.equal(lv('LinkedIn URL'), 'https://linkedin.com/in/ada');
+  assert.equal(lv('GitHub URL'), 'https://github.com/ada');
+  assert.equal(lv('Portfolio URL'), 'https://ada.dev');
+  assert.deepEqual(AF.resolve(field('Twitter URL'), profile()), { ignore: true });
+  // Lever's location search lists "Oakland, CA, USA".
+  const places = ['Oakland, MI, USA', 'Oakland, CA, USA', 'Oakland, NJ, USA'];
+  assert.equal(AF.bestOption(places, lv('Current location', { type: 'location' })), 1);
+  const full = profile();
+  full.personal.state = 'California';
+  assert.equal(AF.bestOption(places, value(field('Current location', { type: 'location' }), full)), 1, 'state saved in full');
+  assert.equal(
+    lv('Which university are you currently attending or did you last attend? Please select "Other (School Not Listed)" if your school is not listed.', { type: 'native', section: 'university' }),
+    'Cal'
+  );
+  assert.equal(lv('Please tell us how you heard about this opportunity.', { type: 'native' }), 'LinkedIn');
+  assert.equal(lv('How did you find out about us?', { type: 'native' }), 'LinkedIn');
+});
+
+test('consent and terms checkboxes are left for you, whatever they mention', () => {
+  for (const label of [
+    'Palantir Technologies has my consent to contact me about future job opportunities.',
+    'I agree to the privacy policy',
+    'I acknowledge that I have read the terms',
+    'I certify that the information above is true',
+    'I certify that I am at least 18 years of age',
+  ]) {
+    assert.equal(AF.resolve(field(label, { type: 'checkbox' }), profile()), null, label);
+  }
+  // A checkbox that is a real question is still answered.
+  assert.equal(value(field('I currently work here', { type: 'checkbox', section: 'work experience', index: 1 })), true);
 });

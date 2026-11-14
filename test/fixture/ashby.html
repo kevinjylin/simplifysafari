@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mock Ashby application</title>
+    <link rel="stylesheet" href="fixture.css" />
+  </head>
+  <body>
+    <div id="app"></div>
+    <aside>
+      <h3 id="verdict">Not run</h3>
+      <div id="results"></div>
+      <h3>Page state</h3>
+      <pre id="state">{}</pre>
+    </aside>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+    <script src="setup.js"></script>
+    <script src="harness.js"></script>
+    <script src="../../extension/src/match.js"></script>
+    <script src="../../extension/src/dom.js"></script>
+    <script src="../../extension/src/profile.js"></script>
+    <script src="../../extension/src/rules.js"></script>
+    <script src="../../extension/src/engine.js"></script>
+    <script src="../../extension/src/forms/fields.js"></script>
+    <script src="../../extension/src/forms/fill.js"></script>
+    <script src="../../extension/src/ashby/site.js"></script>
+    <script src="../../extension/src/content.js"></script>
+    <script src="ashby-mock.js"></script>
+    <script>
+      fixture({
+        expect: {
+          name: 'Ada Lovelace',
+          email: 'ada@example.com',
+          phone: '5550102345',
+          resume: { name: 'cv.txt', size: 12, text: 'hello resume' },
+          linkedin: 'https://linkedin.com/in/ada',
+          location: 'Oakland, California, United States', // reworded built-in question, matched by its id
+          'q.authorized': 'yes',
+          'q.sponsorship': 'no',
+          'q.salary': '150000',
+          'eeo.gender': 'Woman',
+          'eeo.race': ['Asian or Asian American'],
+        },
+        untouched: ['q.relocate', 'q.why', 'eeo.age', 'submitted'],
+        status: {
+          'Are you open to relocating to New York?': 'empty',
+          'What excites you about this role?': 'unknown',
+          'What is your current age?': 'unknown',
+          Resume: 'filled',
+          'Which country do you intend to work from?': 'filled',
+          'Will you now or in the future require sponsorship to work in the US?': 'filled',
+        },
+        required: ['What excites you about this role?', 'Name'],
+        extra: () => {
+          const open = document.querySelectorAll('[role="listbox"]').length;
+          return [{ name: 'no list left open', ok: open === 0, detail: `${open} open` }];
+        },
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,14 @@
+/* Layout shared by the Ashby, Lever and generic mock pages. */
+body { font: 14px/1.4 -apple-system, sans-serif; margin: 0; display: grid; grid-template-columns: 1fr 380px; }
+#app { padding: 24px 32px 200px; max-width: 640px; }
+aside { padding: 16px; background: #f4f4f6; height: 100vh; overflow: auto; position: sticky; top: 0; box-sizing: border-box; }
+label, legend { display: block; font-weight: 600; margin: 12px 0 4px; }
+fieldset label, li li label, [role="radiogroup"] label { font-weight: 400; margin: 2px 0; display: inline; }
+input:not([type="radio"]):not([type="checkbox"]), select, textarea { width: 100%; padding: 6px; box-sizing: border-box; }
+button { margin: 4px 4px 4px 0; }
+button[aria-pressed="true"] { background: #0a66d8; color: #fff; }
+ul { list-style: none; padding: 0; }
+[role="listbox"] { border: 1px solid #999; background: #fff; max-height: 200px; overflow: auto; }
+[role="option"], .dropdown-location { padding: 4px 8px; cursor: pointer; }
+pre { font-size: 11px; white-space: pre-wrap; }
+.pass { color: #0a7f2e; } .fail { color: #c9372c; font-weight: 600; }

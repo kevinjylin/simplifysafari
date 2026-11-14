@@ -3,6 +3,22 @@ const AF = globalThis.Applyfill;
 const status = document.getElementById('status');
 const fill = document.getElementById('fill');
 
+// The generic filler, for a page no content script covers. Clicking the
+// toolbar icon grants access to the current tab, so it can be added on demand.
+const GENERIC = [
+  'src/match.js',
+  'src/dom.js',
+  'src/profile.js',
+  'src/rules.js',
+  'src/engine.js',
+  'src/forms/fields.js',
+  'src/forms/fill.js',
+  'src/generic/site.js',
+  'src/content.js',
+];
+
+let needsInject = false;
+
 document.getElementById('options').addEventListener('click', () => {
   api.runtime.openOptionsPage();
   window.close();
@@ -23,10 +39,18 @@ async function init() {
   try {
     reply = await api.tabs.sendMessage((await activeTab()).id, { type: 'applyfill:status' });
   } catch {
-    // No content script here: not a Workday or Greenhouse page, or the site isn't allowed yet.
+    // No content script here: not a site Applyfill knows, or the site isn't allowed yet.
   }
   if (!reply) {
-    status.textContent = 'Open a Workday or Greenhouse application form, and allow Applyfill on that site if Safari asks.';
+    if (api.scripting) {
+      needsInject = true;
+      status.textContent =
+        "Applyfill doesn't know this site. It can still try, going by the form's labels. Check the answers before you submit.";
+      fill.textContent = 'Try on this page';
+      fill.disabled = false;
+    } else {
+      status.textContent = 'Open a job application form, and allow Applyfill on that site if Safari asks.';
+    }
   } else if (!reply.fields) {
     status.textContent = 'No form fields on this page yet. Start the application, then try again.';
   } else {
@@ -36,10 +60,16 @@ async function init() {
 }
 
 fill.addEventListener('click', async () => {
+  const label = fill.textContent;
   fill.disabled = true;
   fill.textContent = 'Filling…';
   try {
-    const result = await api.tabs.sendMessage((await activeTab()).id, { type: 'applyfill:fill' });
+    const tab = await activeTab();
+    if (needsInject) {
+      await api.scripting.executeScript({ target: { tabId: tab.id }, files: GENERIC });
+      needsInject = false;
+    }
+    const result = await api.tabs.sendMessage(tab.id, { type: 'applyfill:fill' });
     if (result && result.error) throw new Error(result.error);
     status.textContent = result
       ? `${result.filled} filled, ${result.corrected} corrected, ${result.attention} need you. Details are on the page.`
@@ -47,7 +77,7 @@ fill.addEventListener('click', async () => {
   } catch (err) {
     status.textContent = `Autofill failed: ${err.message}`;
   }
-  fill.textContent = 'Autofill this page';
+  fill.textContent = label === 'Try on this page' ? 'Autofill this page' : label;
   fill.disabled = false;
 });
 

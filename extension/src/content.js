@@ -61,6 +61,7 @@
 
   const host = document.createElement('div');
   host.style.cssText = 'position:fixed;right:20px;bottom:20px;z-index:2147483647;';
+  host.setAttribute('data-applyfill', ''); // so form discovery that looks inside shadow roots skips the card
   host.hidden = true;
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `
@@ -197,7 +198,7 @@
     setTimeout(() => (button.textContent = 'Copy field report'), 1500);
   });
 
-  // Workday and Greenhouse are single-page apps: forms appear and disappear without a page
+  // Most application sites are single-page apps: forms appear and disappear without a page
   // load, so watch for them rather than checking once.
   let timer = null;
   function sync() {

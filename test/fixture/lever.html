@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mock Lever application</title>
+    <link rel="stylesheet" href="fixture.css" />
+    <style>
+      .application-label { font-weight: 600; margin-top: 12px; }
+      .dropdown-container, .resume-upload-working, .dropdown-no-results { display: none; }
+      .invisible-resume-upload { position: absolute; opacity: 0; width: 1px; height: 1px; }
+    </style>
+  </head>
+  <body>
+    <!--
+      Imitates jobs.lever.co/<company>/<job>/apply as measured on a live posting:
+      li.application-question blocks with an .application-label ("✱" when
+      required), <h4> section titles, plain radios/checkboxes/selects for custom
+      questions, a location box that searches on keydown (debounced 500 ms),
+      picks on mousedown and empties itself on blur while its list is open, and a
+      résumé upload that Lever reads to pre-fill (partly wrongly) name, email and
+      company.
+    -->
+    <div id="app">
+      <form id="application-form" enctype="multipart/form-data" method="POST">
+        <div class="section application-form">
+          <h4>Submit your application</h4>
+          <ul>
+            <li class="application-question resume">
+              <label>
+                <div class="application-label">Resume/CV <span class="required">✱</span></div>
+                <div class="application-field">
+                  <a href="#" class="visible-resume-upload">
+                    <span class="filename"></span><span class="default-label">ATTACH RESUME/CV</span>
+                    <input class="application-file-input invisible-resume-upload" id="resume-upload-input" name="resume" tabindex="-1" type="file" />
+                  </a>
+                  <span class="resume-upload-working"><div class="resume-upload-label">Analyzing resume...</div></span>
+                </div>
+              </label>
+            </li>
+            <li class="application-question"><label><div class="application-label">Full name<span class="required">✱</span></div><div class="application-field"><input type="text" name="name" required /></div></label></li>
+            <li class="application-question"><label><div class="application-label">Email<span class="required">✱</span></div><div class="application-field"><input type="email" name="email" required /></div></label></li>
+            <li class="application-question"><label><div class="application-label">Phone </div><div class="application-field"><input type="text" name="phone" /></div></label></li>
+            <li class="application-question">
+              <label>
+                <div class="application-label">Current location <span class="required">✱</span></div>
+                <div class="application-field">
+                  <input class="location-input" id="location-input" type="text" maxlength="100" name="location" required />
+                  <input id="selected-location" type="hidden" name="selectedLocation" />
+                  <div class="dropdown-container">
+                    <div class="dropdown-results"></div>
+                    <div class="dropdown-no-results">No location found. Try entering a different location</div>
+                    <div class="dropdown-loading-results">Loading</div>
+                  </div>
+                </div>
+              </label>
+            </li>
+            <li class="application-question"><label><div class="application-label">Current company </div><div class="application-field"><input type="text" name="org" /></div></label></li>
+          </ul>
+        </div>
+        <div class="section application-form">
+          <h4>Links</h4>
+          <ul>
+            <li class="application-question"><label><div class="application-label">LinkedIn URL</div><div class="application-field"><input type="text" name="urls[LinkedIn]" /></div></label></li>
+            <li class="application-question"><label><div class="application-label">Twitter URL</div><div class="application-field"><input type="text" name="urls[Twitter]" /></div></label></li>
+            <li class="application-question"><label><div class="application-label">GitHub URL</div><div class="application-field"><input type="text" name="urls[GitHub]" /></div></label></li>
+            <li class="application-question"><label><div class="application-label">Portfolio URL</div><div class="application-field"><input type="text" name="urls[Portfolio]" /></div></label></li>
+          </ul>
+        </div>
+        <div class="section application-form">
+          <h4>Work Authorization</h4>
+          <ul>
+            <li class="application-question custom-question"><div>
+              <div class="application-label full-width multiple-choice"><div class="text">Are you legally authorized to work in the country for which you are applying?<span class="required">✱</span></div></div>
+              <div class="application-field full-width required-field"><ul data-qa="multiple-choice">
+                <li><label><input type="radio" name="cards[a][field0]" value="Yes" required /><span class="application-answer-alternative">Yes</span></label></li>
+                <li><label><input type="radio" name="cards[a][field0]" value="No" required /><span class="application-answer-alternative">No</span></label></li>
+              </ul></div>
+            </div></li>
+            <li class="application-question custom-question"><div>
+              <div class="application-label full-width multiple-choice"><div class="text">Will you now or in the future require sponsorship for employment visa status (e.g., H-1B, etc.)?<span class="required">✱</span></div></div>
+              <div class="application-field full-width required-field"><ul data-qa="multiple-choice">
+                <li><label><input type="radio" name="cards[a][field1]" value="Yes" required /><span class="application-answer-alternative">Yes</span></label></li>
+                <li><label><input type="radio" name="cards[a][field1]" value="No" required /><span class="application-answer-alternative">No</span></label></li>
+              </ul></div>
+            </div></li>
+            <li class="application-question custom-question"><div>
+              <div class="application-label full-width multiple-select"><div class="text">Language Skill(s) (Check all that apply)<span class="required">✱</span></div></div>
+              <div class="application-field full-width required-field"><ul data-qa="checkboxes">
+                <li><label><input type="checkbox" name="cards[b][field0]" value="English" /><span class="application-answer-alternative">English</span></label></li>
+                <li><label><input type="checkbox" name="cards[b][field0]" value="Spanish" /><span class="application-answer-alternative">Spanish</span></label></li>
+              </ul></div>
+            </div></li>
+          </ul>
+        </div>
+        <div class="section application-form">
+          <h4>University</h4>
+          <ul>
+            <li class="application-question custom-question"><div>
+              <div class="application-label full-width dropdown"><div class="text">Which university are you currently attending or did you last attend? Please select "Other (School Not Listed)" if your school is not listed.<span class="required">✱</span></div></div>
+              <div class="application-field full-width required-field"><div class="application-dropdown"><select name="cards[c][field0]" required>
+                <option value="">Click Here</option>
+                <option>Aalto University</option>
+                <option>University of California, Berkeley</option>
+                <option>University of California, Davis</option>
+                <option>Other (School Not Listed)</option>
+              </select></div></div>
+            </div></li>
+            <li class="application-question custom-question"><div>
+              <div class="application-label full-width dropdown"><div class="text">Please tell us how you heard about this opportunity.<span class="required">✱</span></div></div>
+              <div class="application-field full-width required-field"><div class="application-dropdown"><select name="cards[d][field0]" required>
+                <option value="">Select...</option>
+                <option>BuiltIn</option>
+                <option>Campus Ambassador</option>
+                <option>LinkedIn</option>
+                <option>Referral</option>
+              </select></div></div>
+            </div></li>
+            <li class="application-question custom-question"><div>
+              <div class="application-label full-width textarea"><div class="text">Why do you want to work here?</div></div>
+              <div class="application-field full-width"><textarea class="card-field-input" name="cards[e][field0]"></textarea></div>
+            </div></li>
+          </ul>
+        </div>
+        <div class="section application-form">
+          <h4>U.S. Equal Employment Opportunity information</h4>
+          <ul>
+            <li class="application-question"><label><div class="application-label">Gender</div><div class="application-field"><select name="eeo[gender]">
+              <option value="">Select ...</option><option>Male</option><option>Female</option><option>Decline to self-identify</option>
+            </select></div></label></li>
+            <li class="application-question"><label><div class="application-label">Race</div><div class="application-field"><select name="eeo[race]">
+              <option value="">Select ...</option><option>Hispanic or Latino</option><option>White (Not Hispanic or Latino)</option><option>Asian (Not Hispanic or Latino)</option><option>Decline to self-identify</option>
+            </select></div></label></li>
+            <li class="application-question"><label><div class="application-label">Veteran status</div><div class="application-field"><select name="eeo[veteran]">
+              <option value="">Select ...</option><option>I am a protected veteran</option><option>I am not a protected veteran</option><option>Decline to self-identify</option>
+            </select></div></label></li>
+          </ul>
+        </div>
+        <div class="section application-form">
+          <h4>Additional information</h4>
+          <ul>
+            <li class="application-question"><div class="application-field full-width"><textarea name="comments" placeholder="Add a cover letter or anything else you want to share."></textarea></div></li>
+            <li class="application-question"><div class="application-field full-width">
+              <ul><li><label><span><div>Acme has my consent to contact me about future job opportunities.</div></span><input type="checkbox" name="consent[marketing]" /></label></li></ul>
+            </div></li>
+          </ul>
+        </div>
+        <button type="button" id="btn-submit" onclick="commit('submitted', true)">Submit application</button>
+      </form>
+    </div>
+    <aside>
+      <h3 id="verdict">Not run</h3>
+      <div id="results"></div>
+      <h3>Page state</h3>
+      <pre id="state">{}</pre>
+    </aside>
+
+    <script src="setup.js"></script>
+    <script src="harness.js"></script>
+    <script>
+      // The page's own behaviour, as Lever's scripts do it.
+      (function () {
+        const form = document.getElementById('application-form');
+        const show = (el, on) => (el.style.display = on ? 'flex' : 'none');
+        form.addEventListener('change', (e) => {
+          const el = e.target;
+          if (el.type === 'file' || el.name === 'location') return;
+          if (el.type === 'radio') return commit(el.name, el.value);
+          if (el.type === 'checkbox') {
+            const all = [...form.querySelectorAll(`input[name="${CSS.escape(el.name)}"]:checked`)].map((i) => i.value);
+            return commit(el.name, all);
+          }
+          commit(el.name, el.value);
+        });
+
+        // Résumé: "read" it, then pre-fill a few fields (the name and company wrongly).
+        const upload = document.getElementById('resume-upload-input');
+        upload.addEventListener('change', async () => {
+          const f = upload.files[0];
+          if (!f) return;
+          const li = upload.closest('li');
+          show(li.querySelector('.resume-upload-working'), true);
+          commit('resume', { name: f.name, size: f.size, text: await f.text() });
+          setTimeout(() => {
+            show(li.querySelector('.resume-upload-working'), false);
+            li.querySelector('.filename').textContent = f.name;
+            li.querySelector('.default-label').textContent = '';
+            const guess = { name: 'Ada L', email: 'ada@example.com', org: 'Analytical Engines' };
+            for (const [name, value] of Object.entries(guess)) {
+              form.querySelector(`[name="${name}"]`).value = value;
+              commit(name, value);
+            }
+          }, 1500);
+        });
+
+        // Location search.
+        const PLACES = ['Oakland, CA, USA', 'Oakland, MI, USA', 'Oakland, NJ, USA', 'Oakland Park, FL, USA', 'Lyon, France'];
+        const input = document.getElementById('location-input');
+        const box = input.parentElement;
+        const container = box.querySelector('.dropdown-container');
+        const results = box.querySelector('.dropdown-results');
+        const none = box.querySelector('.dropdown-no-results');
+        let timer = null;
+        let found = [];
+        const empty = () => {
+          results.textContent = '';
+          show(none, false);
+          found = [];
+        };
+        input.addEventListener('input', () => show(container, true));
+        input.addEventListener('keydown', (e) => {
+          if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown', 'Enter'].includes(e.key)) return;
+          clearTimeout(timer);
+          timer = setTimeout(() => {
+            empty();
+            const q = input.value.toLowerCase().split(',')[0].trim();
+            setTimeout(() => {
+              found = q ? PLACES.filter((p) => p.toLowerCase().startsWith(q)) : [];
+              found.forEach((p, i) => {
+                const div = document.createElement('div');
+                div.className = 'dropdown-location';
+                div.id = `location-${i}`;
+                div.textContent = p;
+                results.append(div);
+              });
+              show(none, !found.length);
+            }, 300);
+          }, 500);
+        });
+        input.addEventListener('blur', () => {
+          if (container.style.display !== 'none' && container.style.display !== '') {
+            show(container, false);
+            empty();
+            input.value = '';
+            document.getElementById('selected-location').value = '';
+            commit('location', '');
+          }
+        });
+        document.addEventListener('mousedown', (e) => {
+          const opt = e.target.closest('.dropdown-location');
+          if (!opt) return;
+          show(container, false);
+          input.value = opt.textContent;
+          document.getElementById('selected-location').value = JSON.stringify({ name: opt.textContent });
+          commit('location', opt.textContent);
+          empty();
+        });
+      })();
+    </script>
+    <script src="../../extension/src/match.js"></script>
+    <script src="../../extension/src/dom.js"></script>
+    <script src="../../extension/src/profile.js"></script>
+    <script src="../../extension/src/rules.js"></script>
+    <script src="../../extension/src/engine.js"></script>
+    <script src="../../extension/src/forms/fields.js"></script>
+    <script src="../../extension/src/forms/fill.js"></script>
+    <script src="../../extension/src/lever/site.js"></script>
+    <script src="../../extension/src/content.js"></script>
+    <script>
+      fixture({
+        expect: {
+          resume: { name: 'cv.txt', size: 12, text: 'hello resume' },
+          name: 'Ada Lovelace', // the résumé reader's "Ada L" corrected
+          email: 'ada@example.com',
+          phone: '5550102345',
+          location: 'Oakland, CA, USA',
+          org: 'Engines Ltd', // the reader's guess corrected to the current job
+          'urls[LinkedIn]': 'https://linkedin.com/in/ada',
+          'urls[GitHub]': 'https://github.com/ada',
+          'urls[Portfolio]': 'https://ada.dev',
+          'cards[a][field0]': 'Yes',
+          'cards[a][field1]': 'No',
+          'cards[c][field0]': 'University of California, Berkeley',
+          'cards[d][field0]': 'LinkedIn',
+          'eeo[gender]': 'Female',
+          'eeo[race]': 'Asian (Not Hispanic or Latino)',
+          'eeo[veteran]': 'I am not a protected veteran',
+        },
+        untouched: ['urls[Twitter]', 'cards[b][field0]', 'cards[e][field0]', 'comments', 'consent[marketing]', 'submitted'],
+        status: {
+          'Resume/CV': 'filled',
+          'Full name': 'filled',
+          'Current location': 'filled',
+          'Twitter URL': 'ignored',
+          'Why do you want to work here?': 'unknown',
+          'Acme has my consent to contact me about future job opportunities.': 'unknown',
+        },
+        required: ['Full name', 'Language Skill(s) (Check all that apply)'],
+        extra: (rows) => {
+          const name = rows.find((r) => r.label === 'Full name');
+          return [{ name: 'reader\'s name counted as corrected', ok: Boolean(name && name.replaced), detail: JSON.stringify(name) }];
+        },
+      });
+    </script>
+  </body>
+</html>

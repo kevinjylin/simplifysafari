@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Mock generic application</title>
+    <link rel="stylesheet" href="fixture.css" />
+    <style>
+      .hp { position: absolute; left: -9999px; }
+      .row { margin: 8px 0; }
+      #state-list { position: absolute; z-index: 5; width: 300px; }
+    </style>
+  </head>
+  <body>
+    <!--
+      An application form with no site-specific markup, the way smaller hiring
+      sites build them: labels by for=, by wrapping, by aria-labelledby and by
+      placeholder only; a radio group whose question is a <p>; a field inside a
+      web component's shadow root; a button that opens a listbox at the end of
+      <body>; repeated work entries. Also things that must be left alone: the
+      site search box, a honeypot field and a consent checkbox.
+    -->
+    <div id="app">
+      <header>
+        <form role="search"><input type="search" name="q" placeholder="Search jobs" /> <input type="text" name="keywords" aria-label="Keywords" /></form>
+      </header>
+      <form id="apply">
+        <h2>Personal information</h2>
+        <div class="row"><label for="fn">First name *</label><input id="fn" name="first_name" required /></div>
+        <div class="row"><label>Last name <input name="last_name" required /></label></div>
+        <div class="row"><span id="em-l">Email address</span><input type="email" name="email" aria-labelledby="em-l" /></div>
+        <div class="row"><input type="tel" name="phone" placeholder="Phone number" /></div>
+        <div class="row"><applicant-field name="city" label="City"></applicant-field></div>
+        <div class="row">
+          <label id="st-l">State</label>
+          <button type="button" id="st" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="st-l">Select…</button>
+        </div>
+        <div class="row"><label for="country">Country</label>
+          <select id="country" name="country"><option value="">Choose</option><option>Canada</option><option>United States</option><option>France</option></select>
+        </div>
+        <input class="hp" type="text" name="honeypot" tabindex="-1" />
+
+        <h2>Work experience</h2>
+        <div class="row"><label for="c1">Company</label><input id="c1" name="company_1" /></div>
+        <div class="row"><label for="t1">Job title</label><input id="t1" name="title_1" /></div>
+        <div class="row"><label for="c2">Company</label><input id="c2" name="company_2" /></div>
+        <div class="row"><label for="t2">Job title</label><input id="t2" name="title_2" /></div>
+
+        <h2>Questions</h2>
+        <div class="row">
+          <p>Are you legally authorized to work in the United States?</p>
+          <label><input type="radio" name="auth" value="Yes" /> Yes</label>
+          <label><input type="radio" name="auth" value="No" /> No</label>
+        </div>
+        <fieldset>
+          <legend>Will you require visa sponsorship?</legend>
+          <input type="radio" id="sp-y" name="sponsor" value="Yes" /><label for="sp-y">Yes</label>
+          <input type="radio" id="sp-n" name="sponsor" value="No" /><label for="sp-n">No</label>
+        </fieldset>
+        <div class="row"><label for="cover">Cover letter</label><textarea id="cover" name="cover"></textarea></div>
+        <div class="row"><label for="cv">Resume</label><input type="file" id="cv" name="cv" /></div>
+        <div class="row"><label for="date">Today's date</label><input type="date" id="date" name="date" /></div>
+        <div class="row"><label><input type="checkbox" name="consent" /> I agree to the privacy policy</label></div>
+        <textarea class="hp" name="g-recaptcha-response"></textarea>
+        <button type="button" onclick="commit('submitted', true)">Submit</button>
+      </form>
+    </div>
+    <aside>
+      <h3 id="verdict">Not run</h3>
+      <div id="results"></div>
+      <h3>Page state</h3>
+      <pre id="state">{}</pre>
+    </aside>
+
+    <script src="setup.js"></script>
+    <script src="harness.js"></script>
+    <script>
+      (function () {
+        document.addEventListener('change', (e) => {
+          const el = e.target;
+          if (!el.name) return;
+          if (el.type === 'file') return el.files[0] && el.files[0].text().then((t) => commit(el.name, { name: el.files[0].name, size: el.files[0].size, text: t }));
+          if (el.type === 'checkbox') return commit(el.name, el.checked);
+          commit(el.name, el.value);
+        });
+
+        // A form field as a web component.
+        customElements.define('applicant-field', class extends HTMLElement {
+          connectedCallback() {
+            const root = this.attachShadow({ mode: 'open' });
+            root.innerHTML = `<label for="f">${this.getAttribute('label')}</label><input id="f" />`;
+            const name = this.getAttribute('name');
+            root.querySelector('input').addEventListener('change', (e) => commit(name, e.target.value));
+          }
+        });
+
+        // A button that opens a listbox rendered at the end of <body>.
+        const STATES = ['Arizona', 'California', 'Colorado', 'New York'];
+        const button = document.getElementById('st');
+        let list = null;
+        const close = () => {
+          if (list) list.remove();
+          list = null;
+          button.setAttribute('aria-expanded', 'false');
+          button.removeAttribute('aria-controls');
+        };
+        const open = () => {
+          if (list) return;
+          list = document.createElement('ul');
+          list.id = 'state-list';
+          list.setAttribute('role', 'listbox');
+          const r = button.getBoundingClientRect();
+          Object.assign(list.style, { left: r.left + 'px', top: r.bottom + scrollY + 'px' });
+          for (const s of STATES) {
+            const li = document.createElement('li');
+            li.setAttribute('role', 'option');
+            li.textContent = s;
+            li.addEventListener('click', () => {
+              button.textContent = s;
+              commit('state', s);
+              close();
+            });
+            list.append(li);
+          }
+          document.body.append(list);
+          button.setAttribute('aria-expanded', 'true');
+          button.setAttribute('aria-controls', list.id);
+        };
+        button.addEventListener('click', () => (list ? close() : open()));
+        button.addEventListener('keydown', (e) => {
+          if (e.key === 'ArrowDown') open();
+          if (e.key === 'Escape') close();
+        });
+      })();
+    </script>
+    <script src="../../extension/src/match.js"></script>
+    <script src="../../extension/src/dom.js"></script>
+    <script src="../../extension/src/profile.js"></script>
+    <script src="../../extension/src/rules.js"></script>
+    <script src="../../extension/src/engine.js"></script>
+    <script src="../../extension/src/forms/fields.js"></script>
+    <script src="../../extension/src/forms/fill.js"></script>
+    <script src="../../extension/src/generic/site.js"></script>
+    <script src="../../extension/src/content.js"></script>
+    <script>
+      const d = new Date();
+      const pad = (n) => String(n).padStart(2, '0');
+      fixture({
+        expect: {
+          first_name: 'Ada',
+          last_name: 'Lovelace',
+          email: 'ada@example.com',
+          phone: '5550102345',
+          city: 'Oakland',
+          state: 'California',
+          country: 'United States',
+          company_1: 'Engines Ltd',
+          title_1: 'Engineer',
+          company_2: 'Looms Inc',
+          title_2: 'Intern',
+          auth: 'Yes',
+          sponsor: 'No',
+          cv: { name: 'cv.txt', size: 12, text: 'hello resume' },
+          date: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`,
+        },
+        untouched: ['q', 'keywords', 'honeypot', 'cover', 'consent', 'g-recaptcha-response', 'submitted'],
+        status: {
+          'Email address': 'filled',
+          'Phone number': 'filled',
+          City: 'filled',
+          State: 'filled',
+          'Are you legally authorized to work in the United States?': 'filled',
+          'Will you require visa sponsorship?': 'filled',
+          'Cover letter': 'unknown',
+          'I agree to the privacy policy': 'unknown',
+        },
+        required: ['First name', 'Last name'],
+        extra: (rows) => {
+          const found = rows.filter((r) => /search|keywords/i.test(r.label));
+          const card = window.Applyfill.hasFields();
+          return [
+            { name: 'site search not treated as a question', ok: !found.length, detail: found.map((r) => r.label).join(', ') },
+            { name: 'card would show', ok: card, detail: 'hasFields() false' },
+            { name: 'no list left open', ok: !document.getElementById('state-list'), detail: 'still open' },
+          ];
+        },
+      });
+    </script>
+  </body>
+</html>

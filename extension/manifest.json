@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Applyfill",
-  "description": "Autofill Workday and Greenhouse job applications from a profile stored only on this device.",
+  "description": "Autofill job applications on Workday, Greenhouse, Ashby, Lever and other hiring sites from a profile stored only on this device.",
   "version": "0.1.0",
   "icons": {
     "48": "icons/icon-48.png",
@@ -25,14 +25,32 @@
   "background": {
     "service_worker": "background.js"
   },
-  "permissions": ["storage", "activeTab"],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting"
+  ],
   "host_permissions": [
     "*://*.myworkdayjobs.com/*",
     "*://*.myworkdaysite.com/*",
     "*://boards.greenhouse.io/*",
     "*://job-boards.greenhouse.io/*",
     "*://boards.eu.greenhouse.io/*",
-    "*://job-boards.eu.greenhouse.io/*"
+    "*://job-boards.eu.greenhouse.io/*",
+    "*://jobs.ashbyhq.com/*",
+    "*://jobs.lever.co/*",
+    "*://jobs.eu.lever.co/*",
+    "*://apply.workable.com/*",
+    "*://jobs.smartrecruiters.com/*",
+    "*://*.bamboohr.com/careers/*",
+    "*://*.applytojob.com/*",
+    "*://*.breezy.hr/*",
+    "*://jobs.jobvite.com/*",
+    "*://*.icims.com/*",
+    "*://*.recruitee.com/*",
+    "*://*.teamtailor.com/*",
+    "*://ats.rippling.com/*",
+    "*://*.pinpointhq.com/*"
   ],
   "content_scripts": [
     {
@@ -68,6 +86,70 @@
         "src/engine.js",
         "src/greenhouse/fields.js",
         "src/greenhouse/fill.js",
+        "src/content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://jobs.ashbyhq.com/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "src/match.js",
+        "src/dom.js",
+        "src/profile.js",
+        "src/rules.js",
+        "src/engine.js",
+        "src/forms/fields.js",
+        "src/forms/fill.js",
+        "src/ashby/site.js",
+        "src/content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://jobs.lever.co/*",
+        "*://jobs.eu.lever.co/*"
+      ],
+      "js": [
+        "src/match.js",
+        "src/dom.js",
+        "src/profile.js",
+        "src/rules.js",
+        "src/engine.js",
+        "src/forms/fields.js",
+        "src/forms/fill.js",
+        "src/lever/site.js",
+        "src/content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://apply.workable.com/*",
+        "*://jobs.smartrecruiters.com/*",
+        "*://*.bamboohr.com/careers/*",
+        "*://*.applytojob.com/*",
+        "*://*.breezy.hr/*",
+        "*://jobs.jobvite.com/*",
+        "*://*.icims.com/*",
+        "*://*.recruitee.com/*",
+        "*://*.teamtailor.com/*",
+        "*://ats.rippling.com/*",
+        "*://*.pinpointhq.com/*"
+      ],
+      "all_frames": true,
+      "js": [
+        "src/match.js",
+        "src/dom.js",
+        "src/profile.js",
+        "src/rules.js",
+        "src/engine.js",
+        "src/forms/fields.js",
+        "src/forms/fill.js",
+        "src/generic/site.js",
         "src/content.js"
       ],
       "run_at": "document_idle"
