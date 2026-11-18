@@ -100,7 +100,11 @@
       const type = classify(el);
       if (!type) continue;
       const id = (el.getAttribute('data-automation-id') || 'formField-').slice('formField-'.length);
-      fields.push({ el, id, type, label: labelOf(el, type), required: isRequired(el), ...contextOf(el, heads) });
+      const f = { el, id, type, label: labelOf(el, type), required: isRequired(el), ...contextOf(el, heads) };
+      if (type === 'radio' || type === 'checkboxes') {
+        f.choices = [...el.querySelectorAll('input[type="radio"], input[type="checkbox"]')].map((i) => AF.optionLabel(el, i));
+      }
+      fields.push(f);
     }
 
     // Where entry headings aren't numbered, tell repeated entries apart by

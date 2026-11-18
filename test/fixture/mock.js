@@ -337,7 +337,7 @@
       h(Text, { name: 'self.name', id: 'name', label: 'Name', required: true }),
       h(DateField, { name: 'self.date', id: 'dateSignedOn', label: 'Date', parts: ['Month', 'Day', 'Year'] }),
       h(Choices, {
-        name: 'self.disability', id: 'disabilityStatus', kind: 'checkbox', legend: 'Please check one of the boxes below: disability status',
+        name: 'self.disability', id: 'disabilityStatus', kind: 'checkbox', legend: 'Please check one of the boxes below:',
         options: ['Yes, I have a disability, or have had one in the past', 'No, I do not have a disability and have not had one in the past', 'I do not want to answer'],
       })
     );

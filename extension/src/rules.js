@@ -214,10 +214,14 @@
       },
     },
     { label: /sponsor/, get: (p) => p.questions.sponsorship },
-    { label: /authori[sz]|legally (able|eligible|permitted|entitled)|eligible to work|right to work|legal right/, get: (p) => p.questions.authorized },
+    // Only authorization *to work*: "an authorized dealer of T-Mobile" is something else.
+    {
+      label: /authori[sz]ed to (work|be employed)|(work|employment) authori[sz]ation|legally (able|eligible|permitted|entitled)|eligible to work|right to work|legal right/,
+      get: (p) => p.questions.authorized,
+    },
     { label: /(at least|over|older than) (the age of )?18|18 years (of age )?or older|legal age/, get: (p) => p.questions.over18 },
     {
-      label: /previously (worked|been employed)|former (employee|worker|contractor)|(have|did) you (ever )?(worked?|been employed) (for|at|by|with)|current or (former|previous)/,
+      label: /previously (worked|been employed)|former (employee|worker|contractor)|(have|did) you (ever )?(worked?|been employed) (for|at|by|with)|have you (ever )?been employed or (are|were) you (currently )?employed|current or (former|previous)/,
       id: /previous worker/,
       get: (p) => p.questions.previouslyEmployed,
     },
@@ -225,8 +229,10 @@
     { label: /relocat/, get: (p) => p.questions.relocate },
 
     // ── Voluntary self-identification ────────────────────────────────
-    { label: /veteran/, get: (p) => VETERAN[p.eeo.veteran] || '' },
-    { label: /disabilit/, get: (p) => DISABILITY[p.eeo.disability] || '' },
+    // `byChoices`: also recognised from the option text, for groups whose only
+    // label is "Please check one of the boxes below:".
+    { label: /veteran/, byChoices: true, get: (p) => VETERAN[p.eeo.veteran] || '' },
+    { label: /disabilit/, byChoices: true, get: (p) => DISABILITY[p.eeo.disability] || '' },
     { label: /hispanic|latino/, get: (p) => p.eeo.hispanic },
     { label: /ethnic|\brace\b/, get: (p) => (p.eeo.ethnicity === 'Decline' ? [DECLINE] : p.eeo.ethnicity) },
     { label: /gender|\bsex\b/, get: (p) => GENDER[p.eeo.gender] || p.eeo.gender },
@@ -262,7 +268,7 @@
   }
 
   /**
-   * @param field   { type, label, id, section, index, hint? }
+   * @param field   { type, label, id, section, index, hint?, choices? } – `choices`: option texts of a radio/checkbox group
    * @param profile normalised profile
    * @param ctx     { resume, includeLinkedin } – page-level facts the rules need
    */
@@ -275,7 +281,10 @@
     let value = customAnswer(profile, label);
     if (value === undefined) {
       const ruleLabel = field.hint ? norm(field.hint) : label;
-      const rule = RULES.find((r) => ruleMatches(r, field, ruleLabel, idText));
+      const choices = norm((field.choices || []).join(' | '));
+      const rule =
+        RULES.find((r) => ruleMatches(r, field, ruleLabel, idText)) ||
+        (choices && RULES.find((r) => r.byChoices && ruleMatches(r, field, choices, idText)));
       if (!rule) return null;
       value = rule.get(profile, field, ctx);
     }

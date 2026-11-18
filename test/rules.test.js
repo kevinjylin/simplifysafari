@@ -139,6 +139,11 @@ test('screening questions', () => {
   assert.equal(q('Are you authorized to work in the US without the need for sponsorship?'), 'Yes');
   assert.equal(q('Are you at least 18 years of age?'), 'Yes');
   assert.equal(q('Have you previously worked for Acme as an employee or contractor?'), 'No');
+  // "authorized dealer" is not work authorization.
+  assert.equal(q('Have you been employed or are you currently employed with an authorized dealer of T-Mobile or Metro by T-Mobile?'), 'No');
+  assert.equal(q('Have you been employed or are you currently employed as a contractor for T-Mobile?'), 'No');
+  assert.equal(q('Do you have work authorization in the United States?'), 'Yes');
+  assert.equal(AF.resolve(field('Are you an authorized reseller?', { type: 'dropdown' }), profile()), null);
   assert.equal(q('How Did You Hear About Us?'), 'LinkedIn');
   assert.equal(q('What are your salary expectations?'), '150000', 'custom answer');
   assert.equal(AF.resolve(field('Describe a hard bug you fixed.', { type: 'textarea' }), profile()), null);
@@ -169,6 +174,13 @@ test('self-identification answers resolve to option matchers', () => {
     'I do not want to answer',
   ];
   assert.equal(AF.bestOption(disabilityOptions, q('Please check one of the boxes below: Disability', 'checkboxes')), 2);
+  // Some tenants label the group only "Please check one of the boxes below:"; the options say what it is.
+  const unlabelled = field('Please check one of the boxes below:', { type: 'checkboxes', section: 'self identify', choices: disabilityOptions });
+  assert.equal(AF.bestOption(disabilityOptions, value(unlabelled)), 2);
+  const p2 = profile();
+  p2.eeo.disability = 'No';
+  assert.equal(AF.bestOption(disabilityOptions, value(unlabelled, p2)), 1);
+  assert.equal(AF.resolve(field('Please check one of the boxes below:', { type: 'checkboxes', choices: ['Red', 'Blue'] }), profile()), null);
   assert.equal(AF.bestOption(['Male', 'Female', 'I do not wish to answer'], q('Gender')), 1);
   assert.equal(q('Please select your ethnicity'), 'Asian');
   assert.equal(value(field('Name', { section: 'self identify' })), 'Ada Lovelace');
