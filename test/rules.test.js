@@ -230,6 +230,12 @@ test('greenhouse labels', () => {
 
   // Greenhouse's phone country list reads "United States +1".
   assert.equal(AF.bestOption(['United States Minor Outlying Islands +1', 'United States +1', 'Canada +1'], gh('Country', { type: 'select' })), 1);
+  // The profile's default spelling must find it too.
+  const phoneCountries = ['United States Minor Outlying Islands +1', 'United States +1', 'United Kingdom +44', 'Canada +1'];
+  for (const country of ['United States of America', 'U.S.A.', 'U.S.', 'united states']) {
+    const want = value(field('Country', { type: 'select' }), profile({ personal: { country } }));
+    assert.equal(AF.bestOption(phoneCountries, want), 1, country);
+  }
   const race = ['American Indian or Alaska Native', "I don't wish to answer", 'Asian', 'White'];
   assert.equal(AF.bestOption(race, gh('Race and Ethnicity', { type: 'select' })), 2);
   assert.equal(AF.bestOption(['Man', 'Woman', 'Non-binary or third gender', "I don't wish to answer"], gh('Gender Identity (optional)', { type: 'select' })), 1);

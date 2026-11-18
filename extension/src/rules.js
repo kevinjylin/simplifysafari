@@ -33,10 +33,16 @@
     return full ? [full, state] : state;
   }
 
+  // Every spelling of the US, normalised: "U.S.A." is "u s a".
+  const US_NAMES = new Set(['us', 'usa', 'u s', 'u s a', 'united states', 'united states of america']);
+
+  /**
+   * Forms list the US under different names: Workday says "United States of
+   * America", Greenhouse's phone country says "United States +1". Neither
+   * matches the other, so a US answer offers both.
+   */
   function countryAnswer(country) {
-    return /^(us|usa|u\.s\.a?\.?|united states)$/i.test(String(country).trim())
-      ? ['United States of America', 'United States']
-      : country;
+    return US_NAMES.has(norm(country)) ? ['United States of America', 'United States'] : country;
   }
 
   /** "CA" for "CA" or "California"; '' outside the US list. */
