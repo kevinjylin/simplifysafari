@@ -20,7 +20,7 @@ window.TEST_PROFILE = {
     { school: 'University of California, Berkeley', degree: 'Bachelor of Science', field: 'Mathematics', gpa: '3.9', startYear: '2016', endYear: '2020' },
   ],
   skills: ['Python', 'SQL', 'Underwater Basket Weaving'],
-  questions: { source: 'LinkedIn', authorized: 'Yes', sponsorship: 'No', over18: 'Yes', previouslyEmployed: 'No' },
+  questions: { source: 'LinkedIn', authorized: 'Yes', sponsorship: 'No', over18: 'Yes', previouslyEmployed: 'No', inPerson: 'Yes', usStatus: 'Citizen' },
   eeo: { gender: 'Female', ethnicity: 'Asian', veteran: 'Not a veteran', disability: 'Decline' },
   custom: [{ question: 'salary expectations', answer: '150000' }],
 };

@@ -44,7 +44,7 @@ Greenhouse form, in the corner of the form's frame). Press **Autofill** on each 
 
 Name, address, phone, source, work experience and education entries (adding as many as your profile has), skills,
 websites/LinkedIn, résumé upload, common screening questions (work authorization, sponsorship, 18+, prior employment,
-relocation, non-compete), and the voluntary self-identification pages if you choose to save those answers.
+relocation, non-compete, working in person / on-site, U.S. export-control status, whether your spouse or domestic partner has served in the U.S. military), and the voluntary self-identification pages if you choose to save those answers.
 
 On Greenhouse the same, plus "Location (City)" (searched as city, state, country), the phone country code, and
 education entries whose school, degree and discipline come from Greenhouse's own lists ("Bachelor of Science" is
@@ -59,6 +59,12 @@ On Lever the résumé is attached first and Lever is left to read it; the pass a
 location" is picked from Lever's search ("Oakland, CA, USA").
 
 Consent, terms and "I certify…" checkboxes are never ticked on any site; they're listed for you to tick.
+
+A question is answered only when it asks what you saved. One that looks similar but means something else is listed for
+you instead: work authorization or sponsorship for a country other than yours, "confirm you will *not* need
+sponsorship", "Have you worked with Kubernetes?" (not "…worked for us?"), relocation *assistance*, a reference's or
+emergency contact's name and phone, an employer's address inside a work-history entry. So is a list where two options
+fit equally ("Yes, now" / "Yes, in the future").
 
 ## Layout
 

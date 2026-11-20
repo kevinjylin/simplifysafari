@@ -11,6 +11,8 @@
   // ── Option lists (shared by dropdowns and search prompts) ──────────
 
   const OPTION = '[role="option"], [data-automation-id="promptOption"], [data-automation-id="menuItem"]';
+  // How long to wait for options a control is still loading.
+  const LOAD_TIMEOUT = 8000;
 
   /** Visible option elements, innermost only when they nest. */
   function shownOptions() {
@@ -22,22 +24,31 @@
    * Runs `attempts` one at a time until new options appear on the page.
    * Options are recognised by having appeared since the call started, so it
    * doesn't matter where in the document Workday renders the list.
+   *
+   * `settled` lets the caller stop early when the control resolved itself
+   * without showing a list (a search with exactly one match). `loading` says
+   * the control is still fetching, so its results are worth waiting for.
    */
-  async function revealOptions(trigger, attempts, settled = () => false) {
+  async function revealOptions(trigger, attempts, { settled = () => false, loading = () => false } = {}) {
     const prior = new Set(shownOptions());
     const fresh = () => {
       const now = shownOptions().filter((o) => !prior.has(o));
       return now.length ? now : null;
     };
+    const pending = () => trigger.getAttribute('aria-expanded') === 'true' || loading();
     for (const attempt of attempts) {
       if (!trigger.isConnected || settled()) return null;
       attempt(trigger);
-      // `settled` lets the caller stop early when the control resolved itself
-      // without showing a list (a search with exactly one match).
       let options = await waitFor(() => fresh() || settled(), { timeout: 800 });
       if (options === true) return null;
-      // The control says it opened; its options may still be loading.
-      if (!options && trigger.getAttribute('aria-expanded') === 'true') options = await waitFor(fresh, { timeout: 2500 });
+      // The control opened but its options are still loading: searches go to
+      // Workday's server and can take several seconds on a slow tenant.
+      if (!options && pending()) {
+        options = await waitFor(() => fresh() || settled() || (pending() ? null : 'done'), { timeout: LOAD_TIMEOUT });
+        if (options === true) return null;
+        // "No Items." can show for a moment before the results replace it.
+        if (options === 'done') options = await waitFor(fresh, { timeout: 500 });
+      }
       if (options) {
         await sleep(100); // let the list finish rendering
         return fresh() || options;
@@ -163,6 +174,7 @@
   const isSelected = (f, want) => selectedItems(f).some((item) => itemMatches(item, want));
 
   const openPopups = () => [...document.querySelectorAll('[data-automation-widget="wd-popup"]')].filter(visible);
+  const NO_RESULTS = /\bno (items|results|matches)\b/i;
 
   /** A search with no results still leaves its "No Items" popup up; close it. */
   async function closeEmptyPrompt(input, popupsBefore) {
@@ -178,14 +190,20 @@
   const promptInput = (f) => f.el.querySelector('[data-automation-id="multiSelectContainer"] input, input');
 
   async function searchAndPick(f, want) {
-    // Only literal strings can be typed; regex candidates still help choose among results.
-    for (const query of AF.candidates(want).filter((c) => typeof c === 'string')) {
+    // Literal strings are typed as they are; a regex candidate is typed by its
+    // `query` ("BS" for the abbreviation) and still helps choose among results.
+    const queries = AF.candidates(want).map((c) => (typeof c === 'string' ? c : c.query)).filter(Boolean);
+    for (const query of [...new Set(queries)]) {
       const input = promptInput(f);
       if (!input) return false;
       const before = selectedTexts(f).join('\n');
       const changed = () => selectedTexts(f).join('\n') !== before;
       const popupsBefore = new Set(openPopups());
       let picked = false;
+
+      // A popup that opened for this search and shows neither results nor
+      // "No Items." is still waiting on the server.
+      const searching = () => openPopups().some((p) => !popupsBefore.has(p) && !NO_RESULTS.test(text(p)));
 
       // Typing and pressing Enter either selects a unique match outright or
       // shows a list of results; failing that, try opening the prompt by click.
@@ -198,7 +216,7 @@
           },
           (el) => el.click(),
         ],
-        changed
+        { settled: changed, loading: searching }
       );
       if (options && !changed()) {
         const pick = AF.bestOption(options.map(text), want);

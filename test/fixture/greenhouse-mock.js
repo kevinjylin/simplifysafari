@@ -303,6 +303,22 @@
         wrap(h(Select, { name: 'q.authorized', id: 'question_4', label: 'Are you legally authorized to work in the United States?', options: YES_NO, required: true })),
         wrap(h(Select, { name: 'q.sponsorship', id: 'question_5', label: 'Will you now or in the future require visa sponsorship?', options: YES_NO, required: true })),
         wrap(h(Select, { name: 'q.relocate', id: 'question_6', label: 'Are you open to relocation for this role?', options: YES_NO, required: true })),
+        wrap(h(Select, { name: 'q.inPerson', id: 'question_10', label: 'Are you willing to work in-person for 12 weeks during the internship?', options: YES_NO, required: true })),
+        wrap(
+          h(Select, {
+            name: 'q.exportControls',
+            id: 'question_11',
+            label:
+              'EXPORT CONTROLS - This position requires access to information and technology that is subject to U.S. export controls. Your responses to the questions below will be used solely to determine your eligibility under U.S. law to receive information and materials subject to U.S. export controls.',
+            options: [
+              'A United States citizen or national',
+              'A lawful permanent resident of the United States (green card holder)',
+              'A refugee or asylee admitted to the United States',
+              'None of the above',
+            ],
+            required: true,
+          })
+        ),
         wrap(h(Text, { name: 'q.why', id: 'question_7', label: 'Why do you want to work here?', textarea: true, required: true })),
         wrap(h(Text, { name: 'q.salary', id: 'question_8', label: 'What are your salary expectations?' })),
         wrap(h(Checkboxes, { name: 'q.lengths', id: 'question_9[]', legend: 'Which residency lengths would work for you?', options: ['Six weeks', 'Three months', 'Six months'] }))

@@ -35,6 +35,8 @@
     source: 'LinkedIn',
     'q.authorized': 'Yes',
     'q.sponsorship': 'No',
+    'q.inPerson': 'Yes',
+    'q.exportControls': 'A United States citizen or national',
     'q.salary': '150000',
     'eeo.gender': 'Female',
     'eeo.race': 'Asian',

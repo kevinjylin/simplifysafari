@@ -39,7 +39,7 @@
     'work2.to': { Month: 9, Year: 2020 },
     'work2.description': 'Punched cards.',
     'edu1.school': 'University of California, Berkeley',
-    'edu1.degree': 'Bachelor of Science',
+    'edu1.degree': 'BS', // the list abbreviates; the profile says "Bachelor of Science"
     'edu1.field': 'Mathematics',
     'edu1.gpa': '3.9',
     'edu1.from': { Year: 2016 },

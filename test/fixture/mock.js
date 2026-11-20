@@ -3,7 +3,9 @@
 //   - every field sits in <div data-automation-id="formField-…">
 //   - text inputs are controlled and commit on blur
 //   - dropdowns are a button plus a listbox rendered elsewhere in <body>
-//   - search prompts select on Enter, or show a result list when ambiguous
+//   - search prompts search a "server" on Enter: an empty popup shows while it
+//     loads (as long as SEARCH_DELAY), then the prompt selects a unique match
+//     or lists the results
 //   - date boxes ignore typing and only respond to arrow keys
 // Committed values are mirrored into window.__wd for the assertions in run.js.
 //
@@ -15,6 +17,9 @@
   const PARSED = new URLSearchParams(location.search).has('parsed');
   /** A starting value that only exists in the résumé-parsed variant. */
   const pre = (value) => (PARSED ? value : undefined);
+
+  // Real tenants take a second or more on a skill search; ?delay=ms overrides.
+  const SEARCH_DELAY = Number(new URLSearchParams(location.search).get('delay') ?? 1800);
 
   const store = (window.__wd = {});
   function commit(name, value) {
@@ -86,7 +91,8 @@
   function Search({ name, id, label, options, multi, initial }) {
     const [query, setQuery] = useState('');
     const [selected, setSelected] = useState(initial || []);
-    const [results, setResults] = useState(null);
+    const [results, setResults] = useState(null); // null: closed, 'loading', or a list
+    const pending = useRef(null);
     const containerId = 'ms-' + name;
     const choose = (option) => {
       const next = multi ? [...selected, option] : [option];
@@ -96,13 +102,20 @@
       commit(name, multi ? next : option);
     };
     const onKeyDown = (e) => {
-      if (e.key === 'Escape') setResults(null);
+      if (e.key === 'Escape') {
+        clearTimeout(pending.current); // closing the popup abandons the search
+        setResults(null);
+      }
       if (e.key !== 'Enter') return;
       const term = e.target.value.trim().toLowerCase();
       if (!term) return;
-      const matches = options.filter((o) => o.toLowerCase().includes(term) && !selected.includes(o));
-      if (matches.length === 1) choose(matches[0]);
-      else setResults(matches);
+      setResults('loading');
+      clearTimeout(pending.current);
+      pending.current = setTimeout(() => {
+        const matches = options.filter((o) => o.toLowerCase().includes(term) && !selected.includes(o));
+        if (matches.length === 1) choose(matches[0]);
+        else setResults(matches);
+      }, SEARCH_DELAY);
     };
     return h(
       Wrap,
@@ -121,7 +134,9 @@
             h(
               'div',
               { 'data-associated-widget': containerId },
-              results.length
+              results === 'loading'
+                ? null
+                : results.length
                 ? results.map((o) => h('div', { key: o, 'data-automation-id': 'promptOption', onClick: () => choose(o) }, o))
                 : h('div', null, 'No Items.')
             )
@@ -296,7 +311,7 @@
         initial: 1,
         render: (n) => [
           h(Search, { key: 'a', name: `edu${n}.school`, id: 'schoolItem', label: 'School or University', initial: pre(['University of California, Los Angeles']), options: ['University of California, Berkeley', 'University of California, Los Angeles'] }),
-          h(Dropdown, { key: 'b', name: `edu${n}.degree`, id: 'degree', label: 'Degree', initial: pre('Master of Science'), options: ['Associate of Arts', 'Bachelor of Science', 'Master of Science'] }),
+          h(Dropdown, { key: 'b', name: `edu${n}.degree`, id: 'degree', label: 'Degree', initial: pre('MS'), options: ['AA', 'BA', 'BS', 'MS', 'PhD'] }),
           h(Search, { key: 'c', name: `edu${n}.field`, id: 'field-of-study', label: 'Field of Study', initial: pre(['Mathematics']), options: ['Mathematics', 'Applied Mathematics', 'Physics'] }),
           h(Text, { key: 'd', name: `edu${n}.gpa`, id: 'gradeAverage', label: 'Overall Result (GPA)' }),
           h(DateField, { key: 'e', name: `edu${n}.from`, id: 'firstYearAttended', label: 'From', parts: ['Year'] }),

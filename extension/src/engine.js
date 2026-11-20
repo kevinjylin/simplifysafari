@@ -11,7 +11,12 @@
   const AF = (root.Applyfill = root.Applyfill || {});
   const { sleep, text, loose } = AF;
 
-  AF.firstString = (value) => String(AF.candidates(value).find((c) => typeof c === 'string') ?? '');
+  /** The text to type for an answer: its first literal candidate, or else what a pattern says to type (`query`). */
+  AF.firstString = function firstString(value, maxLength = Infinity) {
+    const strings = AF.candidates(value).map((c) => (typeof c === 'string' ? c : c.query)).filter(Boolean);
+    // A two-character "State" box wants "CA", not "California".
+    return String(strings.find((s) => s.length <= maxLength) ?? strings[0] ?? '');
+  };
   /** Result for a successful fill; `had` says a previous value was overwritten. */
   AF.filled = (had) => (had ? { status: 'filled', replaced: true } : 'filled');
 
@@ -28,7 +33,9 @@
 
   AF.fillInput = async function fillInput(input, value) {
     if (!input) return 'failed';
-    const wanted = AF.firstString(value);
+    const wanted = AF.firstString(value, input.maxLength > 0 ? input.maxLength : Infinity);
+    // An answer that only describes an option to pick has nothing to type; never blank the box for it.
+    if (!wanted.trim()) return 'failed';
     const had = input.value.trim();
     if (loose(had) === loose(wanted)) return 'already';
     AF.typeInto(input, wanted);
@@ -93,10 +100,13 @@
    *   { label, id, type, section, index, required, status, replaced?, options?, missing?, diag?, el }
    */
   AF.runFill = async function runFill(site, profile, resume) {
+    const present = site.discover();
     const ctx = {
       resume,
       // LinkedIn goes in its own field when the page has one, otherwise into Websites.
-      includeLinkedin: !site.discover().some((f) => /linkedin/i.test(f.label)),
+      includeLinkedin: !present.some((f) => /linkedin/i.test(f.label)),
+      // The country phone code has a field of its own, so the number goes in without it.
+      phoneCodeField: present.some((f) => /phone code|country code|dial(l?ing)? code|calling code/i.test(f.label)),
     };
     if (site.prepare) await site.prepare(profile, ctx);
 
